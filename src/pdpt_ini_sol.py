@@ -4,6 +4,7 @@ from .pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
 import time
 import random
 import pickle
+import numpy as np
 
 SEED = 0
 # DATA_DIR = '/home/tan/Documents/PDPT_src/data'
@@ -63,12 +64,21 @@ def initialization(ins ):
     for c_key, c_value in cargo.items():
         selected_cargo[c_key] = c_value
 
-    truck_keys_shuffle = list(selected_truck.keys())
-    random.Random(SEED).shuffle(truck_keys_shuffle)
+    # truck_keys_shuffle = list(selected_truck.keys())
+    # random.Random(SEED).shuffle(truck_keys_shuffle)
 
     #improve truck shuffle
-    # abc=2
-    # assert abc==1
+    capacity = np.array([ [k, v[-1]] for k, v in selected_truck.items()]).reshape(-1,2)
+    idx = capacity[:, 1].argsort()
+    capacity = capacity[idx[::-1], :]
+
+    truck_key_sort_by_capacity = list(capacity[:,0])
+    # print('truck_key_sort_by_capacity', truck_key_sort_by_capacity)
+    # print('truck_keys_shuffle',truck_keys_shuffle)
+
+    truck_keys_shuffle = truck_key_sort_by_capacity
+    abc=2
+
 
     res = ( (created_truck_yCycle_total, created_truck_nCycle_total, created_truck_all_total, node_list_truck_hubs_total),
             (x_sol_total, y_sol_total, S_sol_total, D_sol_total, A_sol_total, Sb_sol_total, Db_sol_total, Ab_sol_total), 

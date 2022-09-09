@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description='read_data read raw data from csv f
 parser.add_argument('--verbose', type=int, default=0, help='flag for printing' +\
                                                             '0 - dont print logs' +\
                                                             '>0 - print details of each instance')
-parser.add_argument('--datadir', type=str, default='/home/tan/Documents/PDPT_src', help='Directory of PDPT data files')
+parser.add_argument('--datadir', type=str, default='/home/tan/Documents/GitHub/pdpt_2022', help='Directory of PDPT data files')
 args = parser.parse_args()
 
 DATA_DIR = args.datadir
@@ -29,7 +29,7 @@ def main():
     # read raw data and convert it to dict and save as pickle files
     for case_num in (range(1,6,1)):
     # for case_num in [3]:
-        with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'read_data_case{case_num}.log')):
+        with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_read_data.log')):
     # with ConsoleLogger.copy_to(logfile):
             read_pdpt_csv_to_pickle(case_num, DATA_DIR+'/data', verbose = VERBOSE)
 

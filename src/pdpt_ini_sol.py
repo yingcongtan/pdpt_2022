@@ -10,10 +10,9 @@ SEED = 0
 # DATA_DIR = '/home/tan/Documents/PDPT_src/data'
 
 
-def initialization(ins ):
+def initialization(ins, greedy_sorting_truck = False, verbose = 0):
     cargo = ins['cargo']
     truck = ins['truck']
-    cargo = ins['cargo']
 
     created_truck_yCycle_total = {}
     created_truck_nCycle_total = {}
@@ -64,20 +63,22 @@ def initialization(ins ):
     for c_key, c_value in cargo.items():
         selected_cargo[c_key] = c_value
 
-    # truck_keys_shuffle = list(selected_truck.keys())
-    # random.Random(SEED).shuffle(truck_keys_shuffle)
+    if greedy_sorting_truck == False:
+        if verbose > 0:
+            print('Randomly shuffle truck list')
+        truck_keys_shuffle = list(selected_truck.keys())
+        random.Random(SEED).shuffle(truck_keys_shuffle)
 
-    #improve truck shuffle
-    capacity = np.array([ [k, v[-1]] for k, v in selected_truck.items()]).reshape(-1,2)
-    idx = capacity[:, 1].argsort()
-    capacity = capacity[idx[::-1], :]
+    elif greedy_sorting_truck == True:
+        if verbose > 0:
+            print('Greedily sort trucks accoding to capacity')
+                    #improve truck shuffle
+        capacity = np.array([ [k, v[-1]] for k, v in selected_truck.items()]).reshape(-1,2)
+        idx = capacity[:, 1].argsort()
+        capacity = capacity[idx[::-1], :]
+        truck_key_sort_by_capacity = list(capacity[:,0])
+        truck_keys_shuffle = truck_key_sort_by_capacity
 
-    truck_key_sort_by_capacity = list(capacity[:,0])
-    # print('truck_key_sort_by_capacity', truck_key_sort_by_capacity)
-    # print('truck_keys_shuffle',truck_keys_shuffle)
-
-    truck_keys_shuffle = truck_key_sort_by_capacity
-    abc=2
 
 
     res = ( (created_truck_yCycle_total, created_truck_nCycle_total, created_truck_all_total, node_list_truck_hubs_total),
@@ -91,9 +92,10 @@ def initialization(ins ):
 # Here we solve multiple PDOTW MIP's to construct an intial solution for PDPT
 def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                     filename, # file where all data of pdotw solutions are saved
+                    greedy_initialization = False,
                     verbose = 0):  
 
-    res, truck_keys_shuffle, selected_truck, selected_cargo = initialization(ins)
+    res, truck_keys_shuffle, selected_truck, selected_cargo = initialization(ins, greedy_initialization, verbose)
 
 
     # load data from ins
@@ -345,7 +347,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
 
 
-def pdpt_ini_sol(case_num, dir, verbose = 0):
+def pdpt_ini_sol(case_num, dir, greedy_initialization, verbose = 0):
 
     # for case_num in range(1, 6, 1):
     if verbose > 0:
@@ -356,7 +358,7 @@ def pdpt_ini_sol(case_num, dir, verbose = 0):
     if verbose > 0:
         print('=========== START CONSTRUCT INITIAL SOLUTION BY SOLVING MULTIPLE PDOTW PROBLEMS ===========')
     path_ = dir+'/out/case' + str(case_num) 
-    res = solve_pdotw_mip(pdpt_ins, path_, verbose)
+    res = solve_pdotw_mip(pdpt_ins, path_, greedy_initialization, verbose)
     if verbose >0: print('=========== END INITIAL SOLUTION  =========== \n')
 
     filename = dir+'/out/case' + str(case_num) +'initSol_all.pkl'

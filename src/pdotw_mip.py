@@ -53,7 +53,6 @@ def postprocess_solution_oneTruck(constant, cargo, truck,
     ### For each truck, if it goes to its destination 
     ### without bringing any cargo, go back to the last node
     
-    
     truck_ = list(created_truck_all.keys())[0]
     # print('Consider truck {} now ------'.format(truck_))
     v = created_truck_all[truck_]
@@ -112,9 +111,6 @@ def postprocess_solution_oneTruck(constant, cargo, truck,
     if verbose > 0: print('+++ The truck_route:')
     for key, value in truck_route.items():
         print(f'        {key, value}')
-    
-    
-
     
     ###### CARGO ######
 
@@ -225,7 +221,7 @@ def pdotw_mip_gurobi(constant, truck,
     This is the gurobi_PDPTW_cycle_node_list_oneTruck_deviation in jason's code (oneTruck_clean.ipynb)
     This is actually the PDOTW !!!
     
-    There is ONLY ONE TRUCK in this PDPTW
+    There is ONLY ONE TRUCK in this PDtruck_entering_leave_T11PTW
              ALL REMAINING CARGO  in this PDPTW
     
     Gurobi model for pickup and delivery problem with time window (PDPTW)
@@ -248,7 +244,6 @@ def pdotw_mip_gurobi(constant, truck,
        Sb_sol, Db_sol, Ab_sol: values of variables
         
     """
-    
 
     MP = Model("Gurobi MIP for PDPTW")
     
@@ -324,7 +319,7 @@ def pdotw_mip_gurobi(constant, truck,
     
         
     
-    
+
     
     
     ###### Constraints ######
@@ -448,10 +443,6 @@ def pdotw_mip_gurobi(constant, truck,
                     y[(truck_, cargo_)]
                 )
     
-
-    
-    
-    
     ### Capacity ----------------------------------------------------
     
     # capacity constraints (3.14)
@@ -524,7 +515,17 @@ def pdotw_mip_gurobi(constant, truck,
                                 - bigM_capacity 
                                 * (1 - x[(node1, node2, truck_)])
                             )
-            
+    # Change 20220911 TAN
+    # Add total size of cargo <= M * sum_j x^k(i,j)
+    for truck_ in created_truck_all.keys():
+        for node1 in node_list_truck_hubs[truck_]:
+            # if truck_ is a cycle truck 
+            # and node2 is its destination
+            MP.addConstr(
+                S[(node1, truck_)]<= 
+                bigM_capacity * quicksum(x[(node1, node2, truck_)]\
+                        for node2 in node_list_truck_hubs[truck_] if node1 != node2))
+
     # total size of cargos at truck origins (3.16)  
     # Should be an equality constraint
     for truck_ in created_truck_all.keys():
@@ -537,12 +538,7 @@ def pdotw_mip_gurobi(constant, truck,
                      if selected_cargo[cargo_][3] == origin_truck)
         )
     
-    
-    
-    
-    
     ### Time --------------------------------------------------------
-    
     # The arrival time of a truck at any node (even if not visited) 
     # is less than or equal to the departure time of a truck
     for truck_ in created_truck_all.keys():

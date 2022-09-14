@@ -22,7 +22,7 @@ VERBOSE = args.verbose
 os.environ['DATA_DIR'] = args.datadir
 
 def main():
-    greedy_initialization = True
+    greedy_initialization = False
 
     assert os.path.isdir(DATA_DIR+'/data'), f'Can find data files in {DATA_DIR}/data'
 
@@ -38,7 +38,7 @@ def main():
     #         read_pdpt_csv_to_pickle(case_num, DATA_DIR+'/data', verbose = VERBOSE)
 
     for case_num in (range(1,6,1)):
-    # for case_num in [3,]:
+    # for case_num in [4,]:
         Path(DATA_DIR+f'/out/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
         with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_initSol.log')):
 

@@ -119,6 +119,8 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
     time_start_all = time.time()
 
     for truck_key in truck_keys_shuffle:
+    # for truck_key in ['T10','T1','T19','T5','T2','T7','T16','T12','T9','T18','T8','T6','T4','T15','T3','T14','T17','T11','T13']:
+    # truck list from Jason's jupyter notebook
         if verbose >0:
             print(f'========= START [PDOTW with truck {truck_key}] ========= ')
 

@@ -101,12 +101,12 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
     # load data from ins
     truck = ins['truck']
     cargo = ins['cargo']
-    edges = ins['edges']
+    # edges = ins['edges']
     nodes = ins['nodes']
     constant = ins['constant']
     node_cargo_size_change = ins['node_cargo_size_change']
     edge_shortest = ins['edge_shortest']
-    path_shortest = ins['path_shortest']
+    # path_shortest = ins['path_shortest']
     single_truck_deviation = ins['single_truck_deviation']
 
     created_truck_yCycle_total, created_truck_nCycle_total, created_truck_all_total, node_list_truck_hubs_total = res[0]

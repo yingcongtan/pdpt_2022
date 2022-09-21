@@ -1,10 +1,11 @@
-from .util import read_case, generate_node_cargo_size_change, read_constant
-from .util import read_pdpt_csv_to_pickle, read_pdpt_pickle, group_cycle_truck,  store_route_solution_PDPT, read_route_solution_PDPT
-from .pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
+from util import read_case, generate_node_cargo_size_change, read_constant
+from util import read_pdpt_csv_to_pickle, read_pdpt_pickle, group_cycle_truck,  store_route_solution_PDPT, read_route_solution_PDPT
+from pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
 import time
 import random
 import pickle
 import numpy as np
+from pathlib import Path
 
 SEED = 0
 # DATA_DIR = '/home/tan/Documents/PDPT_src/data'
@@ -203,6 +204,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         # Note. the pdotw_mip_gurobi function is desgined to take the same arguments as pdpt function
         # but some parameters
         gurobi_log_file = filename + f'_gurobi/truck{truck_key}.log'
+        print('gurobi_log_file', gurobi_log_file)
         obj_val_MP, runtime_MP, \
         x_sol, z_sol, y_sol, S_sol, D_sol, A_sol, \
         Sb_sol, Db_sol, Ab_sol, \
@@ -349,21 +351,24 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
 
 
-def pdpt_ini_sol(case_num, dir, greedy_initialization, verbose = 0):
+def pdpt_ini_sol(case_num, dir_, greedy_initialization, verbose = 0):
 
     # for case_num in range(1, 6, 1):
     if verbose > 0:
         print('=========== START READ RAW DATA FROM CSV TO PICKLE FILES ===========')
-    pdpt_ins = read_pdpt_pickle(case_num, dir+'/data', verbose = verbose-1) 
+    pdpt_ins_file = dir_+'/data/case' + str(case_num) +'.pkl'
+    pdpt_ins = read_pdpt_pickle(pdpt_ins_file, verbose = verbose-1) 
     if verbose >0: print('=========== END  =========== \n')
 
     if verbose > 0:
         print('=========== START CONSTRUCT INITIAL SOLUTION BY SOLVING MULTIPLE PDOTW PROBLEMS ===========')
-    path_ = dir+'/out/case' + str(case_num) 
+    Path(dir_+'/out/case'+ str(case_num) +'_gurobi').mkdir(parents=True, exist_ok=True)
+
+    path_ = dir_+'/out/case' + str(case_num) 
     res = solve_pdotw_mip(pdpt_ins, path_, greedy_initialization, verbose)
     if verbose >0: print('=========== END INITIAL SOLUTION  =========== \n')
 
-    filename = dir+'/out/case' + str(case_num) +'initSol_all.pkl'
+    filename = dir_+'/out/case' + str(case_num) +'initSol_all.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(res, f)
     

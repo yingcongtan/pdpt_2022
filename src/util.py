@@ -536,10 +536,10 @@ def read_pdpt_csv_to_pickle(case_num, dir, verbose = 0):
     with open(path_, 'wb') as pickle_file:
         pickle.dump(dict_, pickle_file)
 
-def read_pdpt_pickle(case_num, dir, verbose = 0):
-    path_ = dir+'/case' + str(case_num) +'.pkl'
+def read_pdpt_pickle(filename, verbose = 0):
+    # path_ = dir+'/case' + str(case_num) +'.pkl'
 
-    with open(path_, 'rb') as pkl_file:
+    with open(filename, 'rb') as pkl_file:
             ins = pickle.load(pkl_file)
 
     if verbose > 0:

@@ -8,7 +8,7 @@ import time
 from docplex.cp.model import end_of, start_of, CpoModel
 from gurobipy import Model, GRB, quicksum
 import csv
-from util import group_cycle_truck
+from .util import group_cycle_truck
 
 
 def time_checker_cluster(constant, selected_cargo, created_truck, 
@@ -101,16 +101,20 @@ def time_checker_cluster(constant, selected_cargo, created_truck,
             return False
     
     ### For cargo and transfers
-    for key, value in cargo_unload.keys():
+    # for key, value in cargo_unload.keys(): # original line from Jason
+    for key, value in cargo_unload.items():
         n = key[0]
         t1 = key[1]
         for c in value:
             for t2 in created_truck.keys():
                 if t2 != t1:
                     if (n, t2) in cargo_load.keys() and c in cargo_load[(n, t2)]:
-                        if g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[cargo_][0])) > h_sol[(n, c)]:
+                        # if g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[cargo_][0])) > h_sol[(n, c)]: original line from jason
+                        if g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[c][0])) > h_sol[(n, c)]:
                             print('The transfer time at {} of {} between {} and {} is wrong'.format(n, c, t1, t2))
-                            print('long one:', g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[cargo_][0])))
+                            # print('long one:', g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[cargo_][0]))) #original line from Jason
+
+                            print('long one:', g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[c][0])))
                             print('h_sol[(n, c)]', h_sol[(n, c)])
                             return False    
     
@@ -1420,7 +1424,8 @@ def cpo_sub(constant, selected_cargo,
     
     # This param is needed for running SP.solve() in linux environment:
     # execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer'
-    SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Quiet')
+    SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Quiet',
+                          execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
     
     feasibility_SP = SP_sol.get_solve_status()
     
@@ -1738,188 +1743,5 @@ def calculate_SP_cost(constant, selected_cargo, selected_edge,
     
     return truck_cost, travel_cost, transfer_cost
 
-def pdpt_route_schedule_decomposition(ins, subroutes):
-    """
-    The main function of PDPT decomposition
-    input: ct = count
-    
-    output:
-        infeasible_clusters
-        removed_cargo_MP
-        removed_cargo_SP
 
-    Three steps to handle removed cargos:
-        1. add a removed cargo to a different cluster, resolve the MP-SP
-        2. add all removed cargos to an unused truck
-        3. LNS
-    """    
-
-
-    
-    truck = ins['truck']
-    cargo = ins['cargo']
-    # edges = ins['edges']
-    node_list = ins['nodes']
-    constant = ins['constant']
-    node_cargo_size_change = ins['node_cargo_size_change']
-    edge = ins['edge_shortest']
-    # path_shortest = ins['path_shortest']
-    single_truck_deviation = ins['single_truck_deviation']
-        
-    selected_cargo, created_truck, selected_node = subroutes
-
-    # Setting parameters for clustering cargo and truck 
-    runtime = 100
-    count_node_cluster = 10
-    conflict_obj_coefficient = 10000
-    
-      
-    ###### Solve the MP+SP for each cluster ######
-    
-    time_start = time.time()
-    
-    infeasible_clusters = []
-    removed_cargo_MP = []
-    removed_cargo_SP = []
-    solution_cluster = {}   
-
-
-    ###### Initialize data structures for the solution of the current cluster ######
-
-    solution_created_truck = {}
-
-    ### group cycle and non-cycle trucks
-    created_truck_yCycle, created_truck_nCycle, created_truck_all = \
-    group_cycle_truck(created_truck) 
-
-
-    ###### Master Problem Solved by Gurobi MIP ######
-
-    # no variable ordering
-    # heuristic = 0.2
-    obj_val_MP, runtime_MP, \
-    x_sol, s_sol, z_sol, y_sol, u_sol, D_sol, Db_sol, \
-    cost_truck_value, cost_travel_value, cost_transfer_value = \
-    gurobi_master_cycle(constant, selected_cargo, 
-        created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-        selected_edge, selected_node, runtime*1)
-
-    if obj_val_MP < 0:
-        infeasible_clusters.append(selected_cluster)
-        selected_cargo, created_truck_all, selected_edge, selected_node, \
-        selected_cargo_removed, obj_val_MP, runtime_MP, \
-        x_sol, s_sol, z_sol, y_sol, u_sol, D_sol = \
-        greedy_fix_MP(constant, selected_cargo, 
-            created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-            selected_edge, selected_node, runtime)
-
-        # find removed cargo from MP
-        for c in selected_cargo_removed.keys():
-            removed_cargo_MP.append([c, -1])
-
-    
-    ###### The MP should be feasible here ######
-    
-    # Not plot for now...
-#         # plot the MP solution
-#         solutionPlotMP(constant, selected_cargo, created_truck, 
-#                        selected_edge, selected_node,
-#                        x_sol, s_sol, z_sol, y_sol, u_sol, D_sol)
-
-
-    ###### Subproblem Solved by CPO CP ######
-
-    # convert MP solution to CP parameters
-    truck_MP, truck_nodes, truck_nodes_index, cargo_in, cargo_out, \
-    transfer_nodes, cargo_unload, cargo_load = \
-    MP_to_SP(constant, selected_cargo, 
-        created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-        selected_edge, selected_node,
-        x_sol, s_sol, z_sol, y_sol, u_sol, D_sol)  
-    
-
-    # Evaluating the feasibility of SP
-    feasibility_SP, g_sol, h_sol, D_sol = \
-    cpo_sub(constant, selected_cargo, 
-        created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-        selected_edge, selected_node,
-        truck_MP, truck_nodes, truck_nodes_index, 
-        cargo_in, cargo_out,
-        transfer_nodes, cargo_unload, cargo_load,
-        runtime)
-
-    if feasibility_SP != 'Feasible':
-        # Greedy heuristic for cargo removal
-        selected_removed_cargo, \
-        truck_MP, truck_nodes, truck_nodes_index, \
-        cargo_in, cargo_out, \
-        transfer_nodes, cargo_unload, cargo_load = \
-        greedy_heuristic(constant, selected_cargo, 
-            created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-            selected_edge, selected_node,
-            truck_MP, truck_nodes, truck_nodes_index,
-            cargo_in, cargo_out,
-            transfer_nodes, cargo_unload, cargo_load)
-
-        # find removed cargo from SP
-        for c in selected_removed_cargo:
-            removed_cargo_SP.append([c, -1])
-    else:
-        if time_checker_cluster(constant, selected_cargo, created_truck_all, 
-                            selected_edge, truck_MP, truck_nodes, 
-                            cargo_unload, cargo_load, g_sol, h_sol, D_sol):
-            print('\nThe time constraint of cluster {} is not violated!'.format(selected_cluster))
-        else:
-            sys.exit()
-        
-    # Calculate SP costs: truck cost + traveling cost + transfer cost
-    truck_cost, travel_cost, transfer_cost = \
-    calculate_SP_cost(constant, selected_cargo, selected_edge, 
-        truck_MP, truck_nodes, 
-        cargo_in, cargo_out, transfer_nodes)
-
-
-    ###### Need to store solutions of clusters ######
-
-    for t in truck_MP:
-        solution_created_truck[t] = truck[t]
-    solution_cluster[selected_cluster] = \
-    [selected_cargo.copy(), solution_created_truck.copy(), selected_node.copy(), \
-        truck_cost, travel_cost, transfer_cost, \
-        truck_MP.copy(), truck_nodes.copy(), cargo_in.copy(), cargo_out.copy(), transfer_nodes.copy()]
-    
-    
-    ###### Solution Checker for each cluster ######
-    
-    if capacity_checker_cluster(selected_cargo, solution_created_truck, 
-                                truck_MP, truck_nodes, cargo_in, cargo_out):
-        print('\nThe capacity of cluster {} is okay!'.format(selected_cluster))
-    else:
-        sys.exit()
-    
-    
-    ###### Print important results before settle ######
-    
-    time_mid = time.time()
-    print('\nThe time for the initial MP-SP is:', time_mid-time_start)
-
-    print('\nAll infeasible clusters are:')
-    print(infeasible_clusters)
-    print('\nThe removed cargos and corresponding clusters in MP are:')
-    for removed_cargo_cluster_pair in removed_cargo_MP:
-        print(removed_cargo_cluster_pair)
-    print('\nThe removed cargos and corresponding clusters in SP are:')
-    for removed_cargo_cluster_pair in removed_cargo_SP:
-        print(removed_cargo_cluster_pair)
-
-    print('\nThe solutions in clusters are:')
-    for selected_cluster in range(nb_cluster):
-        print('\nCluster', selected_cluster, '---------------------------------\n')
-        print('The selected_cargo:')
-        print(list(solution_cluster[selected_cluster][0].keys()))
-        print('The solution_created_truck:')
-        print(solution_cluster[selected_cluster][1])
-        print('The selected_node:')
-        print(solution_cluster[selected_cluster][2])
-        print('\n-------------------------------------------')
     

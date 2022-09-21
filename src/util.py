@@ -312,7 +312,6 @@ def read_route_solution_PDPT(filename, verbose = 0):
         
         # cargo_route_file
         cargo_route_file = {}
-
         line = f.readline()
         while line:
             arr = line.split()

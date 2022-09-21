@@ -1,6 +1,6 @@
-from util import read_case, generate_node_cargo_size_change, read_constant
-from util import read_pdpt_csv_to_pickle, read_pdpt_pickle, group_cycle_truck,  store_route_solution_PDPT, read_route_solution_PDPT
-from pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
+from .util import read_case, generate_node_cargo_size_change, read_constant
+from .util import read_pdpt_csv_to_pickle, read_pdpt_pickle, group_cycle_truck,  store_route_solution_PDPT, read_route_solution_PDPT
+from .pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
 import time
 import random
 import pickle
@@ -120,8 +120,6 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
     time_start_all = time.time()
 
     for truck_key in truck_keys_shuffle:
-    # for truck_key in ['T10','T1','T19','T5','T2','T7','T16','T12','T9','T18','T8','T6','T4','T15','T3','T14','T17','T11','T13']:
-    # truck list from Jason's jupyter notebook
         if verbose >0:
             print(f'========= START [PDOTW with truck {truck_key}] ========= ')
 
@@ -133,6 +131,8 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         
         # nodes in the cluster
         # Note. cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time','departure_node', 'arrival_node']
+        # truck['nb_truck'] = ['departure_node', 'arrival_node', 'max_worktime', 'max_capacity']
+
         selected_node = []
         for v in selected_cargo.values():
             if v[3] not in selected_node:

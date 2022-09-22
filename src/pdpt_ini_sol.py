@@ -1,17 +1,16 @@
-from .util import read_case, generate_node_cargo_size_change, read_constant
-from .util import read_pdpt_csv_to_pickle, read_pdpt_pickle, group_cycle_truck,  store_route_solution_PDPT, read_route_solution_PDPT
-from .pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
+from util import read_case, generate_node_cargo_size_change, read_constant
+from util import read_pdpt_csv_to_pickle, read_pdpt_pickle, group_cycle_truck,  store_route_solution_PDPT, read_route_solution_PDPT
+from pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
 import time
 import random
 import pickle
 import numpy as np
 from pathlib import Path
 
-SEED = 0
 # DATA_DIR = '/home/tan/Documents/PDPT_src/data'
 
 
-def initialization(ins, greedy_sorting_truck = False, verbose = 0):
+def initialization_pdotw(ins, greedy_sorting_truck = False, seed = 0, verbose = 0):
     cargo = ins['cargo']
     truck = ins['truck']
 
@@ -68,7 +67,7 @@ def initialization(ins, greedy_sorting_truck = False, verbose = 0):
         if verbose > 0:
             print('Randomly shuffle truck list')
         truck_keys_shuffle = list(selected_truck.keys())
-        random.Random(SEED).shuffle(truck_keys_shuffle)
+        random.Random(seed).shuffle(truck_keys_shuffle)
 
     elif greedy_sorting_truck == True:
         if verbose > 0:
@@ -92,11 +91,11 @@ def initialization(ins, greedy_sorting_truck = False, verbose = 0):
 
 # Here we solve multiple PDOTW MIP's to construct an intial solution for PDPT
 def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
-                    filename, # file where all data of pdotw solutions are saved
+                    path_, # file where all data of pdotw solutions are saved
                     greedy_initialization = False,
                     verbose = 0):  
 
-    res, truck_keys_shuffle, selected_truck, selected_cargo = initialization(ins, greedy_initialization, verbose)
+    res, truck_keys_shuffle, selected_truck, selected_cargo = initialization_pdotw(ins, greedy_initialization, verbose)
 
 
     # load data from ins
@@ -203,7 +202,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         ### use gurobi to solve the GROW origin PDPTW
         # Note. the pdotw_mip_gurobi function is desgined to take the same arguments as pdpt function
         # but some parameters
-        gurobi_log_file = filename + f'_gurobi/truck{truck_key}.log'
+        gurobi_log_file = path_ + f'_gurobi/truck{truck_key}.log'
         print('gurobi_log_file', gurobi_log_file)
         obj_val_MP, runtime_MP, \
         x_sol, z_sol, y_sol, S_sol, D_sol, A_sol, \
@@ -286,7 +285,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
           (cost_cargo_size_value_total,  cost_cargo_number_value_total, cost_travel_value_total, cost_deviation_value_total),
           (truck_used_total, truck_route, cargo_delivered_total, cargo_undelivered_total, lb_truck, cargo_route, cargo_truck_total_all, cargo_in_truck_total))
 
-    pdpt_res_file = filename +'initSol.txt'
+    pdpt_res_file = path_ +'initSol.txt'
     if verbose > 0:
         print('+++ Saving PDPT initial solutino to {pdpt_res_file}')
     store_route_solution_PDPT(pdpt_res_file, cargo, created_truck_yCycle_total, 

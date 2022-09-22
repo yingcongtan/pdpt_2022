@@ -352,45 +352,11 @@ def best_insert(pdpt_ins, solution_file, verbose = 0):
     return best_insertion
 
 
-def example():
-    pdpt_ins_file = DATA_DIR+'/data/case' + str(case_num) +'.pkl'
-    pdpt_ins = read_pdpt_pickle(pdpt_ins_file, verbose = verbose-1) 
-
-    filename = DATA_DIR + f'/out/case{case_num}initSol.txt'
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(filename, verbose = 0)
-
-    # print(cargo_route_file)
-    temp = [key  for key, value in cargo_route_file.items() if len(value)==0]
-    print(temp)
-    if len(temp) > 0:
-        print('======= There are undelivered parcel {temp}, START best insertion heuristic\n')
-        solution_file = (truck_yCycle_file, truck_used_file, truck_route_file, \
-                        cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-                        Sb_sol_file, Ab_sol_file, Db_sol_file)
-
-        best_insertion = best_insert(pdpt_ins, solution_file, 0)
-
-    best_insert_file = DATA_DIR + f'/out/case{case_num}repair.json'
-    with open(best_insert_file, 'w') as json_file:
-        json.dump(best_insertion, json_file)
-
-    print('======= END best insertion heuristic\n')
-
-    if verbose > 0:
-        for cargo_key in best_insertion.keys():
-            print(f' Cargo [{cargo_key}]')
-            for node_ in best_insertion[cargo_key].keys():
-                for truck_key in best_insertion[cargo_key][node_].keys():
-                    print(f'   node [{node_}] Truck[{truck_key}]')
-                    for key, value in best_insertion[cargo_key][node_][truck_key].items(): 
-                        print(f'\t {key}: {value}')
 
 
 
 if __name__ == "__main__":
 
-    example()
+    print('Nothing Happen')
 
 

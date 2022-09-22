@@ -145,7 +145,7 @@ def generate_node_cargo_size_change(node_list, cargo):
 
 
 def calculate_truck_travel_cost(constant, edge_shortest,
-    truck_used_file, truck_route_file):
+    truck_used_file, truck_route_file, verbose = 0):
     """ 
     Use truck_used_file to calculate truck_cost
     Use truck_route_file to calculate travel_cost
@@ -163,10 +163,10 @@ def calculate_truck_travel_cost(constant, edge_shortest,
             n2 = route[i+1]
             travel_cost += edge_shortest[(n1, n2)] * \
                 constant['truck_running_cost']
-    
-    print('\tThe truck_cost based on the PDPT solution:', truck_cost)
-    print('\tThe travel cost based on the PDPT solution:', travel_cost)
-    print('\tThe total cost:', truck_cost + travel_cost)
+    if verbose > 0:
+        print('\tThe truck_cost based on the PDPT solution:', truck_cost)
+        print('\tThe travel cost based on the PDPT solution:', travel_cost)
+        print('\tThe total cost:', truck_cost + travel_cost)
 
     return truck_cost, travel_cost
 
@@ -644,3 +644,136 @@ class ConsoleLogger:
             if cls._logger is None: raise RuntimeError("ConsoleLogger seems to not have been started, cannot call copy_to.")
             cls._logger.streams['extra_logfile'] = open(extra_logfile, mode)
             return cls._logger
+
+
+
+################ functions related to solution plotting
+def plot_instance(dir_, truck_colors, cargo_colors):
+
+    iniSol_filename = dir_ + '/toyinitSol.txt'
+    truck_yCycle_file, truck_used_file, truck_route_file, \
+    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
+    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
+    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
+
+    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
+    cargo_list = pdpt_ins['cargo']
+    node_coor = pdpt_ins['loc']
+
+    fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
+#     ax1.plot(*np.array(node_coor).T, 'o',ms =10, mfc='None', mec='k', mew=2)
+    ax1.axis('off')
+    
+    cargo_idx = 0
+    for cargo_key, cargo_value in cargo_list.items():
+        source, dest = int(cargo_value[-2]), int(cargo_value[-1])
+        ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
+#                  mec=cargo_colors[cargo_idx], 
+                 mec='k', ms=10)
+        ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
+#                  mec=cargo_colors[cargo_idx], 
+                 mec='k', ms=10)
+
+        cargo_idx+=1
+
+    return fig1, ax1
+
+def plot_init_sol(dir_, truck_colors, cargo_colors):
+
+    iniSol_filename = dir_ + '/toyinitSol.txt'
+    truck_yCycle_file, truck_used_file, truck_route_file, \
+    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
+    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
+    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
+
+    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
+    cargo_list = pdpt_ins['cargo']
+    node_coor = pdpt_ins['loc']
+
+    fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
+#     ax1.plot(*np.array(node_coor).T, 'o',ms =10, mfc='None', mec='k', mew=2)
+    ax1.axis('off')
+    
+    cargo_idx = 0
+    for cargo_key, cargo_value in cargo_list.items():
+        source, dest = int(cargo_value[-2]), int(cargo_value[-1])
+        ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
+#                  mec=cargo_colors[cargo_idx], 
+                 mec='k', ms=10)
+        ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
+#                  mec=cargo_colors[cargo_idx], 
+                 mec='k', ms=10)
+
+        cargo_idx+=1
+
+    truck_idx = 0
+    for truck_key, route_ in truck_route_file.items():
+        for i in range(len(route_)-1):
+            node_curr, node_next = int(route_[i]), int(route_[i+1])
+            x0, y0 = node_coor[node_curr]
+            dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
+            ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
+                      length_includes_head = True, linewidth=2, linestyle=':',
+                      alpha=0.3+truck_idx*0.1)
+        truck_idx += 1
+        
+    return fig1, ax1
+
+def plot_rasd_sol(dir_, truck_colors, cargo_colors):
+
+    iniSol_filename = dir_ + '/toyinitSol.txt'
+    truck_yCycle_file, truck_used_file, truck_route_file, \
+    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
+    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
+    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
+
+    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
+    cargo_list = pdpt_ins['cargo']
+    node_coor = pdpt_ins['loc']
+
+    
+    filename = dir_ + '/toyimprove.pkl'
+    with open(filename, 'rb') as pickle_file:
+        rasd_sol=pickle.load(pickle_file)
+    
+    subroute_truck_route = rasd_sol['route']['truck_route']
+    trucks_in_subroute = subroute_truck_route.keys()
+    
+    fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
+#     ax1.plot(*np.array(node_coor).T, 'o',ms =10, mfc='None', mec='k', mew=2)
+    ax1.axis('off')
+    
+    cargo_idx = 0
+    for cargo_key, cargo_value in cargo_list.items():
+        source, dest = int(cargo_value[-2]), int(cargo_value[-1])
+        ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
+#                  mec=cargo_colors[cargo_idx], 
+                 mec='k', ms=10)
+        ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
+#                  mec=cargo_colors[cargo_idx], 
+                 mec='k', ms=10)
+
+        cargo_idx+=1
+
+    truck_idx = 0
+    for truck_key, route_ in truck_route_file.items():
+        if truck_key not in trucks_in_subroute:
+            for i in range(len(route_)-1):
+                node_curr, node_next = int(route_[i]), int(route_[i+1])
+                x0, y0 = node_coor[node_curr]
+                dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
+                ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
+                          length_includes_head = True, linewidth=2, linestyle=':',
+                          alpha=0.3+truck_idx*0.1)
+            truck_idx += 1
+            
+    for truck_key, route_ in subroute_truck_route.items():
+        for i in range(len(route_)-1):
+            node_curr, node_next = int(route_[i]), int(route_[i+1])
+            x0, y0 = node_coor[node_curr]
+            dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
+            ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
+                      length_includes_head = True, linewidth=2, linestyle=':',
+                      alpha=0.3+truck_idx*0.1)
+        truck_idx += 1
+    return fig1, ax1

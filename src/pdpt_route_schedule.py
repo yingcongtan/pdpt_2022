@@ -8,7 +8,7 @@ import time
 from docplex.cp.model import end_of, start_of, CpoModel
 from gurobipy import Model, GRB, quicksum
 import csv
-from .util import group_cycle_truck
+from util import group_cycle_truck
 
 
 def time_checker_cluster(constant, selected_cargo, created_truck, 
@@ -157,8 +157,8 @@ def capacity_checker_cluster(selected_cargo, solution_created_truck,
 
 def gurobi_master_cycle(constant, selected_cargo,  
     created_truck_yCycle, created_truck_nCycle, created_truck_all,
-    selected_edge, selected_node, 
-    runtime):
+    selected_edge, selected_node, runtime, 
+    filename, verbose = 0):
     
     """
     Gurobi model for the master problem
@@ -728,9 +728,13 @@ def gurobi_master_cycle(constant, selected_cargo,
     MP.setObjective(cost_truck + cost_travel + cost_transfer)
     MP.modelSense = GRB.MINIMIZE
     MP.Params.timeLimit = runtime
+    MP.Params.OutputFlag = 1
+    MP.Params.LogFile = filename
     MP.Params.Heuristics = 0.2
 #     MP.Params.VarBranch = 0
     MP.update()
+    MP.Params.LogToConsole  = 0
+
     MP.optimize()
     
     # if infeasible

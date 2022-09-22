@@ -10,7 +10,6 @@ def postprocess_solution_oneTruck(constant, cargo, truck,
     nb_cluster, cluster_nodes, cluster_hubs,
     truck_od_cluster, cargo_od_cluster, long_cargo_plan_one_hub,
     truck_route, lb_truck, cargo_route, verbose = 1):
-    
     """
     ONLY ONE TRUCK IN THE SOLUTION
 

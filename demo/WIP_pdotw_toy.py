@@ -1,11 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from math import sqrt
-import os, json
+import os, sys
 
-from util import generate_node_cargo_size_change, calculate_single_truck_deviation, ConsoleLogger
-from util import read_route_solution_PDPT, read_pdpt_pickle
-from util import plot_instance, plot_init_sol, plot_rasd_sol, calculate_truck_travel_cost
+# src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
+# sys.path.insert(1, src_dir_)
+src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022'
+sys.path.insert(1, src_dir_)
+
+from src.util import generate_node_cargo_size_change, calculate_single_truck_deviation, ConsoleLogger
+from src.util import read_route_solution_PDPT, read_pickle
+from src.pdotw_mip import eval_pdotw_sol
+
 from pdpt_repair import best_insert
 from pdpt_ini_sol import solve_pdotw_mip
 from pdpt_rasd import select_subroutes, pdpt_route_schedule_decomposition
@@ -45,41 +51,42 @@ def toy_example():
         ]
 
     node_list = [f'N{i+1}' for i in range(num_node)]
+    # node_list = [f'N{i+1}' for i in range(num_node)]
 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
-    cargo = {'C1': [10, 0, 100, '0',  '1'], #cargo 1
-            'C2': [10, 0, 100, '10', '11'], #cargo 2
-            'C3': [10, 0, 100,  '9', '12'], #cargo 3
-            'C4': [10, 0, 100,  '2',  '6'], #cargo 4
-            'C5': [10, 0, 100,  '8',  '3'], #cargo 5
-            'C6': [10, 0, 100,  '4',  '6'], #cargo 6
-            'C7': [10, 0, 100, '13', '15'], #cargo 7
-            'C8': [10, 0, 100,  '2', '14'], #cargo 8
-            }
-    # cargo = {'C1': [10, 0, 100, 0,  1], #cargo 1
-    #         'C2': [10, 0, 100, 10, 11], #cargo 2
-    #         'C3': [10, 0, 100,  9, 12], #cargo 3
-    #         'C4': [10, 0, 100,  2,  6], #cargo 4
-    #         'C5': [10, 0, 100,  8,  3], #cargo 5
-    #         'C6': [10, 0, 100,  4,  6], #cargo 6
-    #         'C7': [10, 0, 100, 13, 15], #cargo 7
-    #         'C8': [10, 0, 100,  2, 14], #cargo 8
+    # cargo = {'C1': [10, 0, 100, '0',  '1'], #cargo 1
+    #         'C2': [10, 0, 100, '10', '11'], #cargo 2
+    #         'C3': [10, 0, 100,  '9', '12'], #cargo 3
+    #         'C4': [10, 0, 100,  '2',  '6'], #cargo 4
+    #         'C5': [10, 0, 100,  '8',  '3'], #cargo 5
+    #         'C6': [10, 0, 100,  '4',  '6'], #cargo 6
+    #         'C7': [10, 0, 100, '13', '15'], #cargo 7
+    #         'C8': [10, 0, 100,  '2', '14'], #cargo 8
     #         }
+    cargo = {'C1': [10, 0, 100, 0,  1], #cargo 1
+            'C2': [10, 0, 100, 10, 11], #cargo 2
+            'C3': [10, 0, 100,  9, 12], #cargo 3
+            'C4': [10, 0, 100,  2,  6], #cargo 4
+            'C5': [10, 0, 100,  8,  3], #cargo 5
+            'C6': [10, 0, 100,  4,  6], #cargo 6
+            'C7': [10, 0, 100, 13, 15], #cargo 7
+            'C8': [10, 0, 100,  2, 14], #cargo 8
+            }
     
 
     # truck['nb_truck'] = ['departure_node', 'arrival_node', 'max_worktime', 'max_capacity']
 
-    truck = {'T1':[ '0',  '7', 100, 100],
-             'T2':[ '9', '12', 100, 100],
-             'T3':[ '3', '15', 100, 100],
-            }
-    # truck = {'T1':[ 0,  7, 100, 100],
-    #          'T2':[ 9, 12, 100, 100],
-    #          'T3':[ 3, 15, 100, 100],
+    # truck = {'T1':[ '0',  '7', 100, 100],
+    #          'T2':[ '9', '12', 100, 100],
+    #          'T3':[ '3', '15', 100, 100],
     #         }
+    truck = {'T1':[ 0,  7, 100, 100],
+             'T2':[ 9, 12, 100, 100],
+             'T3':[ 3, 15, 100, 100],
+            }
 
-    edge_shortest = {(str(i),str(j)): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2)for i in range(num_node) for j in range(num_node)}
-    # edge_shortest = {(i,j): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2)for i in range(num_node) for j in range(num_node)}
+    # edge_shortest = {(str(i),str(j)): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2)for i in range(num_node) for j in range(num_node)}
+    edge_shortest = {(i,j): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2)for i in range(num_node) for j in range(num_node)}
     node_cargo_size_change = generate_node_cargo_size_change(node_list, cargo)
     single_truck_deviation = calculate_single_truck_deviation(truck, cargo, edge_shortest)
 
@@ -99,6 +106,8 @@ def toy_example():
     return dict_
 
 
+###############
+#complete test, all functions related to initial solution phase seems to work fine
 def toy_ini_sol(dir_, greedy_initialization, verbose = 0):
 
 
@@ -122,15 +131,18 @@ def toy_ini_sol(dir_, greedy_initialization, verbose = 0):
     if verbose >0: 
         print('=========== END INITIAL SOLUTION  =========== \n')
 
-    filename = dir_+'/toy_initSol_all.pkl'
+    filename = dir_+'/toy_initSol.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(res, f)
 
 
+
+############
+#Incomplete
 def toy_best_insertion(dir_, verbose = 0):
     pdpt_ins_filename = dir_ + '/toy.pkl'
 
-    pdpt_ins = read_pdpt_pickle(pdpt_ins_filename, verbose = verbose-1) 
+    pdpt_ins = read_pickle(pdpt_ins_filename, verbose = verbose-1) 
 
     initialSol_filename = dir_ + '/toyinitSol.txt'
     truck_yCycle_file, truck_used_file, truck_route_file, \
@@ -170,7 +182,7 @@ def toy_best_insertion(dir_, verbose = 0):
 def pdpt_rasd(dir_, verbose = 0):
 
     iniSol_filename = dir_ + '/toyinitSol.txt'
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
+    pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
 
     truck_yCycle_file, truck_used_file, truck_route_file, \
     cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
@@ -209,25 +221,11 @@ def pdpt_rasd(dir_, verbose = 0):
     
 
 
-def eval_pdotw_sol(dir_, pdotw_sol_file, verbose = 0):
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
-    constant = pdpt_ins['constant']
-    nodes = pdpt_ins['nodes']
-    edge_shortest = pdpt_ins['edge_shortest']
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(pdotw_sol_file, verbose = 0)
-
-
-    truck_cost, travel_cost = \
-    calculate_truck_travel_cost(constant, edge_shortest,
-    truck_used_file, truck_route_file)
-
-    return (truck_cost, travel_cost)
+################################################
 
 
 def toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename, verbose = 0):
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
+    pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
     constant = pdpt_ins['constant']
     nodes = pdpt_ins['nodes']
     edge_shortest = pdpt_ins['edge_shortest']
@@ -248,7 +246,7 @@ def toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename, verbose = 0):
 
 
     truck_cost, travel_cost = \
-    calculate_truck_travel_cost(constant, edge_shortest,
+    eval_pdotw_sol(constant, edge_shortest,
     truck_not_in_subroute, truck_route_file)
 
     costs_rasd = [value for _, value in rasd_sol['cost'].items()]
@@ -258,13 +256,13 @@ def toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename, verbose = 0):
 
     return final_cost
 
+
+
+
+
 def plot_instance(dir_, truck_colors, cargo_colors, font):
 
-    iniSol_filename = dir_ + '/toyinitSol.txt'
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
+    pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = 0) 
 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
     cargo_list = pdpt_ins['cargo']
@@ -298,15 +296,26 @@ def plot_instance(dir_, truck_colors, cargo_colors, font):
 
 def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
 
-    iniSol_filename = dir_ + '/toyinitSol.txt'
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
 
+    pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = 0) 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
     cargo_list = pdpt_ins['cargo']
     node_coor = pdpt_ins['loc']
+    constant = pdpt_ins['constant']
+    edge_shortest = pdpt_ins['edge_shortest']
+
+    ini_Sol_res_filename = dir_ + '/toy_initSol.pkl'
+
+    ini_sol_res = read_pickle(ini_Sol_res_filename)
+
+    truck_route = ini_sol_res['truck_route']
+    truck_used = ini_sol_res['used_truck']
+
+
+    truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest,truck_used, truck_route)
+
+    total_cost = truck_cost+travel_cost
+    title = f'Init. Sol. [{truck_cost}+{travel_cost}+0]'
 
     fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
     ax1.axis('off')
@@ -322,7 +331,7 @@ def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
         cargo_idx+=1
         
     truck_idx = 0
-    for truck_key, route_ in truck_route_file.items():
+    for truck_key, route_ in truck_route.items():
         for i in range(len(route_)-1):
             node_curr, node_next = int(route_[i]), int(route_[i+1])
             x0, y0 = node_coor[node_curr]
@@ -343,9 +352,10 @@ def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
 
     ax1.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05),
               fancybox=True, shadow=True, ncol=5, prop = font)
+            
 
     
-    return fig1, ax1
+    return fig1, ax1, title
 
 def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
 
@@ -353,7 +363,7 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
     truck_yCycle_file, truck_used_file, truck_route_file, \
     cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
     Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
+    pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = 0) 
 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
     cargo_list = pdpt_ins['cargo']
@@ -420,43 +430,36 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
     return fig1, ax1
 
 def main():
-    ins = toy_example()
+    # ins = toy_example()
 
     truck_colors = ['b', 'r', 'g']
     cargo_colors = ['#8c510a', '#bf812d', '#dfc27d', '#f6e8c3',
                     '#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e']
     legend_font = font_manager.FontProperties(family='serif',style='normal', size=12)
     
-    # fig1, ax1 = plot_instance(dir_, None, cargo_colors, legend_font)
-    # fig1.savefig(dir_+'/toy.png', dpi=150, transparent=True)
+    fig1, ax1 = plot_instance(dir_, None, cargo_colors, legend_font)
+    fig1.savefig(dir_+'/toy.png', dpi=150, transparent=True)
 
     print('=========== Construct IniSol')
-    # toy_ini_sol(dir_, greedy_initialization = False, verbose = 0)
-
-    ini_sol_filename = dir_ + f'/toyinitSol.txt'
-    
-
-    # ini_sol_cost = eval_pdotw_sol(dir_, ini_sol_filename, verbose = 0)
-    # print(f'===== cost of initial solution {ini_sol_cost}')
-    
+    toy_ini_sol(dir_, greedy_initialization = False, verbose = 0) 
 
 
-    # fig2, ax2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
-    # ax2.set_title(f'Initial Solution [{sum(ini_sol_cost)}]', size=18, font='serif')
-    # fig2.savefig(dir_+'/toy_initSol.png', dpi=150, transparent=True)
+    fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
+    ax2.set_title(title_2, size=18, font='serif')
+    fig2.savefig(dir_+'/toy_initSol.png', dpi=150, transparent=True)
 
     # pdpt_rasd(dir_)
 
 
-    rasd_sol_filename = dir_ + '/toyimprove.pkl'
-    final_cost = toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename)
-    print(f'===== cost of solution after iter RASD{final_cost}')
+    # rasd_sol_filename = dir_ + '/toyimprove.pkl'
+    # final_cost = toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename)
+    # print(f'===== cost of solution after iter RASD{final_cost}')
 
 
-    fig3, ax3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
-    ax3.set_title(f'Solution after 1 iter RASD [{final_cost}]', size=18, font='serif')
+    # fig3, ax3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
+    # ax3.set_title(f'Solution after 1 iter RASD [{final_cost}]', size=18, font='serif')
 
-    fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150, transparent=True)
+    # fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150, transparent=True)
 
 
 if __name__ ==  "__main__":

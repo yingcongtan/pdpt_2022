@@ -144,31 +144,7 @@ def generate_node_cargo_size_change(node_list, cargo):
 ###################################################
 
 
-def calculate_truck_travel_cost(constant, edge_shortest,
-    truck_used_file, truck_route_file, verbose = 0):
-    """ 
-    Use truck_used_file to calculate truck_cost
-    Use truck_route_file to calculate travel_cost
-    """
 
-    # For truck_cost
-    truck_cost = len(truck_used_file) * constant['truck_fixed_cost']
-
-    # For travel_cost
-    travel_cost = 0
-    for t in truck_used_file:
-        route = truck_route_file[t]
-        for i in range(len(route)-1):
-            n1 = route[i]
-            n2 = route[i+1]
-            travel_cost += edge_shortest[(n1, n2)] * \
-                constant['truck_running_cost']
-    if verbose > 0:
-        print('\tThe truck_cost based on the PDPT solution:', truck_cost)
-        print('\tThe travel cost based on the PDPT solution:', travel_cost)
-        print('\tThe total cost:', truck_cost + travel_cost)
-
-    return truck_cost, travel_cost
 
 
 #####################################################
@@ -521,6 +497,22 @@ def read_pdpt_csv_to_pickle(case_num, dir, verbose = 0):
     pdpt_ins = read_pdpt_csv(path, verbose)
     edge_shortest, path_shortest = replace_edge_by_shortest_length_nx(pdpt_ins.nodes, pdpt_ins.edges)
     single_truck_deviation = calculate_single_truck_deviation(pdpt_ins.truck, pdpt_ins.cargo, edge_shortest)
+
+    truck_yCycle = {}
+    truck_nCycle = {}
+    
+    for trcuk_key, truck_value in pdpt_ins.truck.items():
+        # flag = random.Random(seed).random()
+        if truck_value[0] == truck_value[1]:
+            # modify the truck to be a cycle truck
+            truck_yCycle[trcuk_key] = \
+            (truck_value[0], truck_value[0], truck_value[2], truck_value[3])
+        else:
+            # keep the truck to be a non-cycle truck
+            truck_nCycle[trcuk_key] = \
+            (truck_value[0], truck_value[1], truck_value[2], truck_value[3])
+
+
     dict_ = {'constant': pdpt_ins.constant,
              'cargo': pdpt_ins.cargo,
              'truck': pdpt_ins.truck,
@@ -530,12 +522,14 @@ def read_pdpt_csv_to_pickle(case_num, dir, verbose = 0):
              'edge_shortest': edge_shortest,
              'path_shortest': path_shortest,
              'single_truck_deviation': single_truck_deviation,
+             'truck_yCycle': truck_yCycle,
+             'truck_nCycle': truck_nCycle,
             }
     path_ = dir+'/case' + str(case_num) +'.pkl'
     with open(path_, 'wb') as pickle_file:
         pickle.dump(dict_, pickle_file)
 
-def read_pdpt_pickle(filename, verbose = 0):
+def read_pickle(filename, verbose = 0):
     # path_ = dir+'/case' + str(case_num) +'.pkl'
 
     with open(filename, 'rb') as pkl_file:

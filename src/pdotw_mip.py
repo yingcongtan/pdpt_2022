@@ -1,15 +1,36 @@
 from gurobipy import Model, quicksum, GRB
 import numpy as np
 
+def eval_pdotw_sol(constant, edge_shortest,
+    truck_used_file, truck_route_file, verbose = 0):
+    """ 
+    Use truck_used_file to calculate truck_cost
+    Use truck_route_file to calculate travel_cost
+    """
 
-def postprocess_solution_oneTruck(constant, cargo, truck, 
-    edge_shortest, selected_cargo, 
-    created_truck_yCycle, created_truck_nCycle, created_truck_all,
+    # For truck_cost
+    truck_cost = len(truck_used_file) * constant['truck_fixed_cost']
+
+    # For travel_cost
+    travel_cost = 0
+    for t in truck_used_file:
+        route = truck_route_file[t]
+        for i in range(len(route)-1):
+            n1 = route[i]
+            n2 = route[i+1]
+            travel_cost += edge_shortest[(n1, n2)] * \
+                constant['truck_running_cost']
+    if verbose > 0:
+        print('\tThe truck_cost based on the PDPT solution:', truck_cost)
+        print('\tThe travel cost based on the PDPT solution:', travel_cost)
+        print('\tThe total cost:', truck_cost + travel_cost)
+
+    return truck_cost, travel_cost
+
+def postprocess_solution_pdotw(cargo, truck, 
+    selected_cargo, created_truck_all,
     node_list_truck_hubs, 
-    x_sol, z_sol, y_sol, S_sol, D_sol, A_sol, Sb_sol, Db_sol, Ab_sol, 
-    nb_cluster, cluster_nodes, cluster_hubs,
-    truck_od_cluster, cargo_od_cluster, long_cargo_plan_one_hub,
-    truck_route, lb_truck, cargo_route, verbose = 1):
+    x_sol, y_sol,truck_route, cargo_route, verbose = 0):
     """
     ONLY ONE TRUCK IN THE SOLUTION
 
@@ -75,17 +96,20 @@ def postprocess_solution_oneTruck(constant, cargo, truck,
         ### Evaluate whether the truck has arrived at its destination
         # if so
         if v[1] == truck[truck_][1]:
-            if verbose > 0: print('+++ Truck {}'.format(truck_), 'has arrived at its real destination!')
+            if verbose > 0: 
+                print('+++ Truck {}'.format(truck_), 'has arrived at its real destination!')
                 
         # else: the truck would be considered in the hub problem
         else:
-            if verbose > 0: print('+++ Truck {}'.format(truck_), 'has NOT arrived at its real destination!')
+            if verbose > 0: 
+                print('+++ Truck {}'.format(truck_), 'has NOT arrived at its real destination!')
             
 
     # if the truck is not used in this cluster
     # it just goes from its origin to its destination
     else:
-        if verbose > 0: print('+++ The {} is unused!'.format(truck_))
+        if verbose > 0: 
+            print('+++ The {} is unused!'.format(truck_))
         
     
     ###### Generate truck routes for used trucks ######
@@ -107,7 +131,8 @@ def postprocess_solution_oneTruck(constant, cargo, truck,
                     break
 
 
-    if verbose > 0: print('+++ The truck_route:')
+    if verbose > 0: 
+        print('+++ The truck_route:')
     for key, value in truck_route.items():
         print(f'        {key, value}')
     
@@ -164,9 +189,6 @@ def postprocess_solution_oneTruck(constant, cargo, truck,
                 if verbose > 0: print('+++ The undelivered cargo:', cargo_undelivered[c])
                 for node_ in cargo_route_origin:
                     cargo_route[c].append((t, node_))
-        
-
-    
     
     ###### cargo_truck_origin ######
     
@@ -210,11 +232,11 @@ def postprocess_solution_oneTruck(constant, cargo, truck,
     return truck_used, cargo_delivered, cargo_undelivered, \
            cargo_truck_origin, cargo_in_truck
 
-def pdotw_mip_gurobi(constant, truck, 
+def pdotw_mip_gurobi(constant, 
     selected_cargo, single_truck_deviation,
     created_truck_yCycle, created_truck_nCycle, created_truck_all,
     node_list_truck_hubs, selected_edge, node_cargo_size_change, 
-    lb_truck, runtime, filename, verbose = 1):
+    runtime, filename, verbose = 1):
     
     """
     This is the gurobi_PDPTW_cycle_node_list_oneTruck_deviation in jason's code (oneTruck_clean.ipynb)
@@ -938,9 +960,6 @@ def pdotw_mip_gurobi(constant, truck,
     return obj_val_MP, runtime_MP, \
            x_sol, {}, y_sol, S_sol, D_sol, A_sol, \
            Sb_sol, Db_sol, Ab_sol, \
-           {}, {}, {}, {}, \
            cost_cargo_size_value, cost_cargo_number_value, \
-           cost_travel_value, cost_deviation_value, \
-           -1, -1, \
-           -1, -1
+           cost_travel_value, cost_deviation_value
 

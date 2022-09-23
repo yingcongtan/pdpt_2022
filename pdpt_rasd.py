@@ -1,5 +1,5 @@
-from pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, capacity_checker_cluster
-from util import read_pdpt_pickle, read_route_solution_PDPT, group_cycle_truck 
+from src.pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, capacity_checker_cluster
+from src.util import read_pickle, read_route_solution_PDPT, group_cycle_truck 
 import numpy as np
 import random, sys, time
 import pickle
@@ -90,7 +90,7 @@ def select_subroutes(ins, cargo_route_file, verbose):
     edges_ = list(set([(i,j) for i in selected_node for j in selected_node]))
 
     for i,j in edges_:
-        selected_edge[(i,j)] = int(edge_shortest[(i,j)])
+        selected_edge[(i,j)] = edge_shortest[(i,j)]
 
     return selected_cargo, selected_truck, selected_node, selected_edge
 
@@ -206,9 +206,9 @@ def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, v
         3. LNS
     """    
 
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = initial_solution
+
+    truck_route_file = initial_solution['truck_route']
+    cargo_route_file = initial_solution['cargo_route']
     
     truck = ins['truck']
     # cargo = ins['cargo']
@@ -382,7 +382,7 @@ def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, v
 def pdpt_rasd(dir_, verbose = 0):
 
     iniSol_filename = dir_ + '/toyinitSol.txt'
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
+    pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
 
     truck_yCycle_file, truck_used_file, truck_route_file, \
     cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \

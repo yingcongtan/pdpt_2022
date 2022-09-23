@@ -1,11 +1,17 @@
-from util import read_case, generate_node_cargo_size_change, read_constant
-from util import read_pdpt_csv_to_pickle, read_pdpt_pickle, group_cycle_truck,  store_route_solution_PDPT, read_route_solution_PDPT
-from pdotw_mip import pdotw_mip_gurobi, postprocess_solution_oneTruck
+import sys
+
+src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
+sys.path.insert(1, src_dir_)
+
+from util import generate_node_cargo_size_change
+from util import read_pickle, group_cycle_truck
+from pdotw_mip import pdotw_mip_gurobi, postprocess_solution_pdotw, eval_pdotw_sol
 import time
 import random
 import pickle
 import numpy as np
 from pathlib import Path
+
 
 # DATA_DIR = '/home/tan/Documents/PDPT_src/data'
 
@@ -42,11 +48,11 @@ def initialization_pdotw(ins, greedy_sorting_truck = False, seed = 0, verbose = 
     cargo_undelivered_total = {} 
     lb_truck = {}
     cargo_route = {}
-    cargo_truck_total_all = {}
-    cargo_in_truck_total = {}
+    truck_per_cargo = {}
+    cargo_in_truck = {}
 
     for c_key, _ in cargo.items():
-        cargo_truck_total_all[c_key] = -1
+        truck_per_cargo[c_key] = -1
         cargo_route[c_key] = []
 
 
@@ -84,7 +90,7 @@ def initialization_pdotw(ins, greedy_sorting_truck = False, seed = 0, verbose = 
     res = ( (created_truck_yCycle_total, created_truck_nCycle_total, created_truck_all_total, node_list_truck_hubs_total),
             (x_sol_total, y_sol_total, S_sol_total, D_sol_total, A_sol_total, Sb_sol_total, Db_sol_total, Ab_sol_total), 
             (cost_cargo_size_value_total, cost_cargo_number_value_total, cost_travel_value_total, cost_deviation_value_total),
-            (truck_used_total, truck_route, cargo_delivered_total, cargo_undelivered_total, lb_truck, cargo_route, cargo_truck_total_all, cargo_in_truck_total)
+            (truck_used_total, truck_route, cargo_delivered_total, cargo_undelivered_total, lb_truck, cargo_route, truck_per_cargo, cargo_in_truck)
     )
 
     return res, truck_keys_shuffle, selected_truck, selected_cargo
@@ -102,7 +108,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
     truck = ins['truck']
     cargo = ins['cargo']
     # edges = ins['edges']
-    nodes = ins['nodes']
+    # nodes = ins['nodes']
     constant = ins['constant']
     node_cargo_size_change = ins['node_cargo_size_change']
     edge_shortest = ins['edge_shortest']
@@ -112,7 +118,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
     created_truck_yCycle_total, created_truck_nCycle_total, created_truck_all_total, node_list_truck_hubs_total = res[0]
     x_sol_total, y_sol_total, S_sol_total, D_sol_total, A_sol_total, Sb_sol_total, Db_sol_total, Ab_sol_total = res[1]
     cost_cargo_size_value_total,  cost_cargo_number_value_total, cost_travel_value_total, cost_deviation_value_total = res[2]
-    truck_used_total, truck_route, cargo_delivered_total, cargo_undelivered_total, lb_truck, cargo_route, cargo_truck_total_all, cargo_in_truck_total = res[3]
+    truck_used_total, truck_route, cargo_delivered_total, cargo_undelivered_total, lb_truck, cargo_route, truck_per_cargo, cargo_in_truck = res[3]
 
     # edge_shortest, path_shortest = replace_edge_by_shortest_length_nx(nodes, edges)
     # single_truck_deviation = calculate_single_truck_deviation(truck, cargo, edge_shortest)
@@ -205,19 +211,15 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         gurobi_log_file = path_ + f'_gurobi/truck{truck_key}.log'
         print('gurobi_log_file', gurobi_log_file)
         obj_val_MP, runtime_MP, \
-        x_sol, z_sol, y_sol, S_sol, D_sol, A_sol, \
+        x_sol, _, y_sol, S_sol, D_sol, A_sol, \
         Sb_sol, Db_sol, Ab_sol, \
-        slack_clb_sol, slack_cub_sol, \
-        slack_tlb_sol, slack_tub_sol, \
         cost_cargo_size_value, cost_cargo_number_value, \
-        cost_travel_value, cost_deviation_value, \
-        _, _, \
-        _, _ = \
-        pdotw_mip_gurobi(constant, truck, 
+        cost_travel_value, cost_deviation_value\
+        = pdotw_mip_gurobi(constant, 
         selected_cargo, single_truck_deviation,
         created_truck_yCycle, created_truck_nCycle, created_truck_all,
         node_list_truck_hubs, selected_edge, node_cargo_size_change,
-        {}, 100, gurobi_log_file, 1)
+        100, gurobi_log_file, 1)
 
         ### if origin stage subproblem for the current truck is feasible
         if obj_val_MP >= 0:
@@ -248,14 +250,10 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
             ### post-process the solution
             truck_used, cargo_delivered, cargo_undelivered, \
             cargo_truck_total, cargo_in_truck = \
-            postprocess_solution_oneTruck(constant, cargo, truck, 
-            edge_shortest, selected_cargo, 
-            created_truck_yCycle, created_truck_nCycle, created_truck_all,
+            postprocess_solution_pdotw(cargo, truck, 
+            selected_cargo, created_truck_all,
             node_list_truck_hubs, 
-            x_sol, z_sol, y_sol, S_sol, D_sol, A_sol, Sb_sol, Db_sol, Ab_sol, 
-            0, {}, {},
-            {}, {}, {}, 
-            truck_route, lb_truck, cargo_route)
+            x_sol, y_sol, truck_route, cargo_route)
             
             for truck_ in truck_used:
                 if truck_ not in truck_used_total:
@@ -269,9 +267,9 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
             for c_key, c_value in cargo_truck_total.items():
                 if v != -1:
-                    cargo_truck_total_all[c_key] = c_value
+                    truck_per_cargo[c_key] = c_value
             for t_key, t_value in cargo_in_truck.items():
-                cargo_in_truck_total[t_key] = t_value.copy()
+                cargo_in_truck[t_key] = t_value.copy()
 
             ### Remove carried cargo ######
             for key, value in y_sol.items():
@@ -280,70 +278,68 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
         print(f'========= END [PDOTW with truck {truck_key}] ========= \n')
 
-    res =((created_truck_yCycle_total, created_truck_nCycle_total, created_truck_all_total, node_list_truck_hubs_total),
-          (x_sol_total, y_sol_total, S_sol_total, D_sol_total, A_sol_total, Sb_sol_total, Db_sol_total, Ab_sol_total),
-          (cost_cargo_size_value_total,  cost_cargo_number_value_total, cost_travel_value_total, cost_deviation_value_total),
-          (truck_used_total, truck_route, cargo_delivered_total, cargo_undelivered_total, lb_truck, cargo_route, cargo_truck_total_all, cargo_in_truck_total))
+    truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest, truck_used_total, truck_route)
+    res = {'truck_yCycle': list(created_truck_yCycle_total.keys()),
+           'used_truck': truck_used_total,
+           'truck_route': truck_route,
+           'cargo_route': cargo_route,
+           'x_sol': x_sol_total,
+           'y_sol': y_sol_total,
+           'S_sol': S_sol_total,
+           'D_sol': D_sol_total,
+           'A_sol': A_sol_total,
+           'Sb_sol': Sb_sol_total,
+           'Db_sol': Db_sol_total,
+           'Ab_sol': Ab_sol_total,
+           'truck_cost' : truck_cost,
+           'travel_cost' : travel_cost,
+          }
 
-    pdpt_res_file = path_ +'initSol.txt'
-    if verbose > 0:
-        print('+++ Saving PDPT initial solutino to {pdpt_res_file}')
-    store_route_solution_PDPT(pdpt_res_file, cargo, created_truck_yCycle_total, 
-    created_truck_nCycle_total, truck, 
-    truck_used_total, truck_route, cargo_route, x_sol_total, y_sol_total, 
-    S_sol_total, D_sol_total, A_sol_total, 
-    Sb_sol_total, Db_sol_total, Ab_sol_total)
+    if verbose > 1:
+        print('+++ Summary of the initial solution')
+        print('\nThe final length of selected_cargo is:', len(selected_cargo))
+        removed_cargo = []
+        for c in selected_cargo.keys():
+            removed_cargo.append(c)
 
-    print('+++ Summary of the initial solution')
-    print('\nThe final length of selected_cargo is:', len(selected_cargo))
-    removed_cargo = []
-    for c in selected_cargo.keys():
-        removed_cargo.append(c)
+        print('\nThe truck_used_total:', len(truck_used_total))
+        print(truck_used_total)
 
-    print('\nThe truck_used_total:', len(truck_used_total))
-    print(truck_used_total)
+        assert len(truck_used_total) <= len(truck) , \
+        "len(truck_used_total) > len(truck)"
 
-    assert len(truck_used_total) <= len(truck) , \
-    "len(truck_used_total) > len(truck)"
+        print('\nThe truck_route:', len(truck_route))
+        for t, v in truck_route.items():
+            print(t, v)
+        assert len(truck) == len(truck_route), "len(truck) != len(truck_route)"
 
-    print('\nThe truck_route:', len(truck_route))
-    for t, v in truck_route.items():
-        print(t, v)
-    assert len(truck) == len(truck_route), "len(truck) != len(truck_route)"
+        print('\nThe cargo_route:', len(cargo_route))
+        for c, v in cargo_route.items():
+            print(c, v)
+        assert len(cargo) == len(cargo_route), "len(cargo) != len(cargo_route)"
 
-    print('\nThe cargo_delivered_total:', len(cargo_delivered_total))
-    for t, v in cargo_delivered_total.items():
-        print(t, v)
-    print('\nThe cargo_undelivered_total:', len(cargo_undelivered_total))
-    for t, v in cargo_undelivered_total.items():
-        print(t, v)
+        if verbose>2:
+            print('\nThe cargo_delivered_total:', len(cargo_delivered_total))
+            print([cargo_key for cargo_key in cargo_delivered_total.keys()])
+            
+            print('\nThe cargo_undelivered_total:', len(cargo_undelivered_total))
+            print([cargo_key for cargo_key in cargo_undelivered_total.keys()])
 
+            print('\nThe truck_per_cargo:', len(truck_per_cargo))
+            for t, v in truck_per_cargo.items():
+                print(t, v)
+            assert len(truck_per_cargo) == len(cargo), \
+            "len(truck_per_cargo) != len(cargo)"
 
-    print('\nThe lb_truck:', len(lb_truck))
-    for t, v in lb_truck.items():
-        print(t, v)
-    assert len(truck) == len(lb_truck), "len(truck) != len(lb_truck)"
+            print('\nThe cargo_in_truck:', len(cargo_in_truck))
+            for t, v in cargo_in_truck.items():
+                print(t, v)
 
-    print('\nThe cargo_truck_total_all:', len(cargo_truck_total_all))
-    for t, v in cargo_truck_total_all.items():
-        print(t, v)
-    assert len(cargo_truck_total_all) == len(cargo), \
-    "len(cargo_truck_total_all) != len(cargo)"
+        print('\nThe removed_cargos are:', len(removed_cargo))
+        print(removed_cargo)
 
-    print('\nThe cargo_in_truck_total:', len(cargo_in_truck_total))
-    for t, v in cargo_in_truck_total.items():
-        print(t, v)
-
-    print('\nThe cargo_route:', len(cargo_route))
-    for c, v in cargo_route.items():
-        print(c, v)
-    assert len(cargo) == len(cargo_route), "len(cargo) != len(cargo_route)"
-
-    print('\nThe removed_cargo after the greedy approach are:', len(removed_cargo))
-    print(removed_cargo)
-
-    time_end_all = time.time()
-    print('\nThe total runtime is:', time_end_all - time_start_all)
+        time_end_all = time.time()
+        print('\nThe total runtime is:', time_end_all - time_start_all)
 
 
     return res
@@ -356,7 +352,7 @@ def pdpt_ini_sol(case_num, dir_, greedy_initialization, verbose = 0):
     if verbose > 0:
         print('=========== START READ RAW DATA FROM CSV TO PICKLE FILES ===========')
     pdpt_ins_file = dir_+'/data/case' + str(case_num) +'.pkl'
-    pdpt_ins = read_pdpt_pickle(pdpt_ins_file, verbose = verbose-1) 
+    pdpt_ins = read_pickle(pdpt_ins_file, verbose = verbose-1) 
     if verbose >0: print('=========== END  =========== \n')
 
     if verbose > 0:
@@ -366,15 +362,7 @@ def pdpt_ini_sol(case_num, dir_, greedy_initialization, verbose = 0):
     path_ = dir_+'/out/case' + str(case_num) 
     res = solve_pdotw_mip(pdpt_ins, path_, greedy_initialization, verbose)
     if verbose >0: print('=========== END INITIAL SOLUTION  =========== \n')
-
-    filename = dir_+'/out/case' + str(case_num) +'initSol_all.pkl'
+    
+    filename = dir_+'/out/case' + str(case_num) +'_inisol.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(res, f)
-    
-
-
-
-    # truck_yCycle_file, truck_used_file, truck_route_file, \
-    # cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    # Sb_sol_file, Ab_sol_file, Db_sol_file = \
-    # read_route_solution_PDPT(filename, verbose = verbose)

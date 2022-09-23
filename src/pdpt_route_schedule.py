@@ -4,7 +4,13 @@ from sortedcollections import SortedDict
 import string   
 import pandas as pd
 import random
-import time
+
+import time, sys
+
+src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
+sys.path.insert(1, src_dir_)
+
+
 from docplex.cp.model import end_of, start_of, CpoModel
 from gurobipy import Model, GRB, quicksum
 import csv
@@ -1219,17 +1225,6 @@ def cpo_sub(constant, selected_cargo,
         if cargo_ in selected_cargo.keys():
             SP.add(end_of(g[(node_, cargo_)])
                    <= start_of(h[(node_, cargo_)]) )
-#         for truck1 in truck_MP:
-#             for truck2 in truck_MP:
-#                 if truck1 != truck2:
-#                     if (node_, truck1) in cargo_unload.keys() and \
-#                        (node_, truck2) in cargo_load.keys() and \
-#                        cargo_ in cargo_unload[(node_, truck1)] and \
-#                        cargo_ in cargo_load[(node_, truck2)]:
-#                         node_index_truck1 = truck_nodes_index[truck1][node_]
-#                         pred_node = truck_nodes[truck1][node_index_truck1-1]
-#                         node_index_truck2 = truck_nodes_index[truck2][node_]
-#                         succ_node = truck_nodes[truck2][node_index_truck2+1]
                         
         
     
@@ -1282,14 +1277,8 @@ def cpo_sub(constant, selected_cargo,
             for cargo_ in cargo_load[(node1, truck_)]:
                 SP.add(start_of(D[(node1, node2, truck_)])
                        >= end_of(h[(node1, cargo_)]) )
-        # A truck would not load anything at its destination
-        # destination_truck = truck_nodes[truck_][-1]
-        # for cargo_ in cargo_load[(destination_truck, truck_)]:
-        #     SP.add(start_of(D[(destination_truck, dummy_node, truck_)])
-        #            >= end_of(h[(destination_truck, cargo_)]) )
     
     #***** Some details of unloading and loading time ******
-    
     # if a cargo p is loaded by a truck k at a node i 
     # (including the origin k^{+} of the truck k)
     # but the origin of the cargo p^{+} is not node i
@@ -1334,14 +1323,10 @@ def cpo_sub(constant, selected_cargo,
                 if cargo_ in cargo_in[(destination_cargo, truck_)]:
                     if destination_cargo == created_truck_all[truck_][1] and \
                        truck_ in created_truck_yCycle.keys():
-#                         print(truck_nodes_index[truck_])
                         pred_node = truck_nodes[truck_][len(truck_nodes_index[truck_]) - 1]
-#                         print('Case 1 (2.46) in cpo_sub:', cargo_, truck_, pred_node, destination_cargo)
                     else:
-#                         print(truck_nodes_index[truck_])
                         destination_index = truck_nodes_index[truck_][destination_cargo]
                         pred_node = truck_nodes[truck_][destination_index - 1]
-#                         print('Case 2 (2.46) in cpo_sub:', cargo_, truck_, pred_node, destination_cargo)
                     SP.add(end_of(D[(pred_node, destination_cargo, truck_)]) <= upper_tw_cargo )
                     break
     

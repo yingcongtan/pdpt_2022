@@ -19,6 +19,7 @@ import pickle
 from pathlib import Path
 from matplotlib.lines import Line2D
 import matplotlib.font_manager as font_manager
+from math import ceil
 
 # Please update dir_ to the folder where you wan to save files
 dir_ = '/home/tan/Documents/GitHub/pdpt_2022/toy'
@@ -32,26 +33,42 @@ def toy_example():
                 'node_fixed_time': 11.0, 
                 'loading_variation_coefficient': 0.0094598
                }
-    loc = [[0.00,  0.00], #node 1
-        [1.50, -0.50], #node 2
-        [2.00, -0.75], #node 3
-        [2.50, -0.75], #node 4
-        [3.50, -0.75], #node 5
-        [4.00, -0.50], #node 6
-        [5.00, -0.75], #node 7
-        [5.20, -1.75], #node 8
-        [3.00, -0.50], #node 9
-        [4.50,  0.00], #node 10
-        [1.00, -1.25], #node 11
-        [0.75, -1.75], #node 12
-        [0.25, -2.00], #node 13
-        [2.50, -1.75], #node 14
-        [3.00, -2.50], #node 15
-        [3.75, -2.00], #node 16
-        ]
+    # loc = [[0.00,  0.00], #node 1
+    #     [1.50, -0.50], #node 2
+    #     [2.00, -0.75], #node 3
+    #     [2.50, -0.75], #node 4
+    #     [3.50, -0.75], #node 5
+    #     [4.00, -0.50], #node 6
+    #     [5.00, -0.75], #node 7
+    #     [5.20, -1.75], #node 8
+    #     [3.00, -0.50], #node 9
+    #     [4.50,  0.00], #node 10
+    #     [1.00, -1.25], #node 11
+    #     [0.75, -1.75], #node 12
+    #     [0.25, -2.00], #node 13
+    #     [2.50, -1.75], #node 14
+    #     [3.00, -2.50], #node 15
+    #     [3.75, -2.00], #node 16
+    #     ]
 
+    loc = [[0.00,  0.00], #node 1
+           [150,  -50], #node 2
+           [200,  -75], #node 3
+           [250,  -75], #node 4
+           [350,  -75], #node 5
+           [400,  -50], #node 6
+           [500,  -75], #node 7
+           [520,  -175], #node 8
+           [300,  -50], #node 9
+           [450,   00], #node 10
+           [100, -125], #node 11
+           [ 75, -175], #node 12
+           [ 25, -200], #node 13
+           [250, -175], #node 14
+           [300, -250], #node 15
+           [375, -200], #node 16
+           ]
     node_list = [f'N{i+1}' for i in range(num_node)]
-    # node_list = [f'N{i+1}' for i in range(num_node)]
 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
     # cargo = {'C1': [10, 0, 100, '0',  '1'], #cargo 1
@@ -63,14 +80,14 @@ def toy_example():
     #         'C7': [10, 0, 100, '13', '15'], #cargo 7
     #         'C8': [10, 0, 100,  '2', '14'], #cargo 8
     #         }
-    cargo = {'C1': [10, 0, 100, 0,  1], #cargo 1
-            'C2': [10, 0, 100, 10, 11], #cargo 2
-            'C3': [10, 0, 100,  9, 12], #cargo 3
-            'C4': [10, 0, 100,  2,  6], #cargo 4
-            'C5': [10, 0, 100,  8,  3], #cargo 5
-            'C6': [10, 0, 100,  4,  6], #cargo 6
-            'C7': [10, 0, 100, 13, 15], #cargo 7
-            'C8': [10, 0, 100,  2, 14], #cargo 8
+    cargo = {'C1': [100, 0, 10000, 0,  1], #cargo 1
+             'C2': [100, 0, 10000, 10, 11], #cargo 2
+             'C3': [100, 0, 10000,  9, 12], #cargo 3
+             'C4': [100, 0, 10000,  2,  6], #cargo 4
+             'C5': [100, 0, 10000,  8,  3], #cargo 5
+             'C6': [100, 0, 10000,  4,  6], #cargo 6
+             'C7': [100, 0, 10000, 13, 15], #cargo 7
+             'C8': [100, 0, 10000,  2, 14] #cargo 8
             }
     
 
@@ -80,13 +97,12 @@ def toy_example():
     #          'T2':[ '9', '12', 100, 100],
     #          'T3':[ '3', '15', 100, 100],
     #         }
-    truck = {'T1':[ 0,  7, 100, 100],
-             'T2':[ 9, 12, 100, 100],
-             'T3':[ 3, 15, 100, 100],
+    truck = {'T1':[ 0,  7, 5000, 100],
+             'T2':[ 9, 12, 5000, 100],
+             'T3':[ 3, 15, 5000, 100]
             }
-
-    # edge_shortest = {(str(i),str(j)): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2)for i in range(num_node) for j in range(num_node)}
-    edge_shortest = {(i,j): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2)for i in range(num_node) for j in range(num_node)}
+    # edge_shortest = {(i,j): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2) for i in range(num_node) for j in range(num_node)}
+    edge_shortest = {(i,j): int(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2)) for i in range(num_node) for j in range(num_node)}
     node_cargo_size_change = generate_node_cargo_size_change(node_list, cargo)
     single_truck_deviation = calculate_single_truck_deviation(truck, cargo, edge_shortest)
 
@@ -181,20 +197,23 @@ def toy_best_insertion(dir_, verbose = 0):
 
 def pdpt_rasd(dir_, verbose = 0):
 
-    iniSol_filename = dir_ + '/toyinitSol.txt'
     pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
 
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
 
-    initial_solution = (truck_yCycle_file, truck_used_file, truck_route_file, \
-                        cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-                        Sb_sol_file, Ab_sol_file, Db_sol_file)
+    ini_sol_res_filename = dir_ + '/toy_initSol.pkl'
+    ini_sol_res = read_pickle(ini_sol_res_filename)
 
-    subroutes = select_subroutes(pdpt_ins, cargo_route_file, verbose)
+    # truck_yCycle_file, truck_used_file, truck_route_file, \
+    # cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
+    # Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
 
-    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_+'/toy', pdpt_ins, initial_solution, subroutes, verbose = 0)
+    # initial_solution = (truck_yCycle_file, truck_used_file, truck_route_file, \
+    #                     cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
+    #                     Sb_sol_file, Ab_sol_file, Db_sol_file)
+
+    subroutes = select_subroutes(pdpt_ins, ini_sol_res['cargo_route'], verbose)
+
+    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_+'/toy', pdpt_ins, ini_sol_res, subroutes, verbose = 0)
 
     res = {'MP': {'x_sol': MP_sol[0],
                   'x_sol': MP_sol[1],
@@ -224,15 +243,17 @@ def pdpt_rasd(dir_, verbose = 0):
 ################################################
 
 
-def toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename, verbose = 0):
+def toy_eval_pdpt_sol(dir_, rasd_sol_filename, verbose = 0):
     pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
     constant = pdpt_ins['constant']
     nodes = pdpt_ins['nodes']
     edge_shortest = pdpt_ins['edge_shortest']
 
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(ini_sol_filename, verbose = 0)
+    ini_sol_res_filename = dir_ + '/toy_initSol.pkl'
+    ini_sol_res = read_pickle(ini_sol_res_filename)
+
+    truck_used_file = ini_sol_res['used_truck']
+    truck_route_file = ini_sol_res['truck_route']
 
     
     with open(rasd_sol_filename, 'rb') as pickle_file:
@@ -254,7 +275,7 @@ def toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename, verbose = 0):
     final_cost = truck_cost + travel_cost + sum(costs_rasd)
 
 
-    return final_cost
+    return truck_cost + costs_rasd[0], travel_cost+costs_rasd[1], costs_rasd[-1]
 
 
 
@@ -359,10 +380,10 @@ def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
 
 def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
 
-    iniSol_filename = dir_ + '/toyinitSol.txt'
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
+    ini_sol_res_filename = dir_ + '/toy_initSol.pkl'
+    ini_sol_res = read_pickle(ini_sol_res_filename)
+    truck_route_file = ini_sol_res['truck_route']
+
     pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = 0) 
 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
@@ -412,8 +433,10 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
                           alpha=0.3+truck_idx*0.1)
             truck_idx += 1
             
+    rasd_sol_filename = dir_ + '/toyimprove.pkl'
+    truck_cost, travel_cost, transfer_cost = toy_eval_pdpt_sol(dir_, rasd_sol_filename)
+    title = f'Sol. 1 iter RASD [{truck_cost}+{travel_cost}+{transfer_cost}]'
 
-        
     legend_elements = [Line2D([0], [0],  marker='^', color='w', label='origin',
                           markerfacecolor='None', mec='k',  markersize=10),
                        Line2D([0], [0],  marker='o', color='w', label='destination',
@@ -427,16 +450,17 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
               fancybox=True, shadow=True, ncol=5, prop = font)
 
     
-    return fig1, ax1
+    return fig1, ax1, title
 
 def main():
-    # ins = toy_example()
 
     truck_colors = ['b', 'r', 'g']
     cargo_colors = ['#8c510a', '#bf812d', '#dfc27d', '#f6e8c3',
                     '#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e']
     legend_font = font_manager.FontProperties(family='serif',style='normal', size=12)
     
+    ins = toy_example()
+
     fig1, ax1 = plot_instance(dir_, None, cargo_colors, legend_font)
     fig1.savefig(dir_+'/toy.png', dpi=150, transparent=True)
 
@@ -448,18 +472,12 @@ def main():
     ax2.set_title(title_2, size=18, font='serif')
     fig2.savefig(dir_+'/toy_initSol.png', dpi=150, transparent=True)
 
-    # pdpt_rasd(dir_)
+    pdpt_rasd(dir_)
 
+    fig3, ax3, title_3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
+    ax3.set_title(title_3, size=18, font='serif')
 
-    # rasd_sol_filename = dir_ + '/toyimprove.pkl'
-    # final_cost = toy_eval_pdpt_sol(dir_, ini_sol_filename, rasd_sol_filename)
-    # print(f'===== cost of solution after iter RASD{final_cost}')
-
-
-    # fig3, ax3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
-    # ax3.set_title(f'Solution after 1 iter RASD [{final_cost}]', size=18, font='serif')
-
-    # fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150, transparent=True)
+    fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150, transparent=True)
 
 
 if __name__ ==  "__main__":

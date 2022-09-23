@@ -83,7 +83,8 @@ def postprocess_solution_pdotw(cargo, truck,
     # Generate cargo_in_truck
     for c in selected_cargo.keys():
         if y_sol[(truck_, c)] == 1:
-            if verbose > 0: print('    The cargo {} has been carried by truck {}'.format(c, truck_))
+            if verbose > 0: 
+                print('    The cargo {} has been carried by truck {}'.format(c, truck_))
             truck_used_flag += 1
             cargo_in_truck[truck_].append(c)
     
@@ -143,7 +144,6 @@ def postprocess_solution_pdotw(cargo, truck,
 
     for c, v in selected_cargo.items():
         if y_sol[(t, c)] == 1:
-#             print('Now consider the cargo {}'.format(c))
             ### Evaluate whether the cargo has been delivered
             # if so
             if v[4] == cargo[c][4]:
@@ -154,7 +154,6 @@ def postprocess_solution_pdotw(cargo, truck,
                 # locate the truck that carries the cargo
                 for i in range(len(truck_route[t])):
                     if truck_route[t][i] == v[3]:
-#                             cargo_route_origin.append(truck_route[t][i])
                         j = i
                         while truck_route[t][j] != v[4]:
                             cargo_route_origin.append(
@@ -175,7 +174,6 @@ def postprocess_solution_pdotw(cargo, truck,
                 # locate the truck that carries the cargo
                 for i in range(len(truck_route[t])):
                     if truck_route[t][i] == v[3]:
-#                             cargo_route_origin.append(truck_route[t][i])
                         j = i
                         while truck_route[t][j] != v[4]:
                             cargo_route_origin.append(
@@ -186,7 +184,8 @@ def postprocess_solution_pdotw(cargo, truck,
                         break
                 # the cargo route is just a piece of the truck route
                 cargo_undelivered[c] = (t, cargo_route_origin.copy())
-                if verbose > 0: print('+++ The undelivered cargo:', cargo_undelivered[c])
+                if verbose > 0: 
+                    print('+++ The undelivered cargo:', cargo_undelivered[c])
                 for node_ in cargo_route_origin:
                     cargo_route[c].append((t, node_))
     

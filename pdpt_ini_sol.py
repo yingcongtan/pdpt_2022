@@ -209,7 +209,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         # Note. the pdotw_mip_gurobi function is desgined to take the same arguments as pdpt function
         # but some parameters
         gurobi_log_file = path_ + f'_gurobi/truck{truck_key}.log'
-        print('gurobi_log_file', gurobi_log_file)
+
         obj_val_MP, runtime_MP, \
         x_sol, _, y_sol, S_sol, D_sol, A_sol, \
         Sb_sol, Db_sol, Ab_sol, \

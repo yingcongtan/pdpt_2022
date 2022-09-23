@@ -1211,7 +1211,8 @@ def cpo_sub(constant, selected_cargo,
             node1 = truck_nodes[truck_][i]
             node2 = truck_nodes[truck_][i+1]
             D[(node1, node2, truck_)] = \
-            SP.interval_var(size = selected_edge[(node1, node2)])
+            SP.interval_var(size = int(np.ceil(selected_edge[(node1, node2)])))
+            # SP.interval_var(size = selected_edge[(node1, node2)])
         node_last = truck_nodes[truck_][-1]
         D[(node_last, dummy_node, truck_)] = SP.interval_var(size = 0)
         

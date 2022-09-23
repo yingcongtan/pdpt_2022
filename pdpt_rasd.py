@@ -337,7 +337,7 @@ def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, v
         for c in selected_removed_cargo:
             removed_cargo_SP.append([c, -1])
     else:
-        print(f'SP Feasible, apply greedy heuristics to fix SP')
+        print(f'SP Feasible, Check time constraint')
         if time_checker_cluster(constant, selected_cargo, created_truck_all, 
                             selected_edge, truck_MP, truck_nodes, 
                             cargo_unload, cargo_load, g_sol, h_sol, D_sol):

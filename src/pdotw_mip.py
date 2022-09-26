@@ -30,7 +30,7 @@ def eval_pdotw_sol(constant, edge_shortest,
 def postprocess_solution_pdotw(cargo, truck, 
     selected_cargo, created_truck_all,
     node_list_truck_hubs, 
-    x_sol, y_sol,truck_route, cargo_route, verbose = 0):
+    x_sol, y_sol, truck_route, cargo_route, verbose = 0):
     """
     ONLY ONE TRUCK IN THE SOLUTION
 

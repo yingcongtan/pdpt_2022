@@ -174,29 +174,40 @@ def postprocess_pdpt_solution(subroutes, x_sol, s_sol, y_sol, z_sol, u_sol, verb
 
     # RECALL, cargo is a dictionary with the following format:
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
+
     for cargo_key, cargo_value in selected_cargo.items():
         dest = cargo_value[-1]
         if sum([z_sol[(node_, dest, truck_key, cargo_key)] for node_ in selected_node for truck_key in selected_truck.keys() if node_!= dest]) == 1:
             truck_list = [truck_key for truck_key in selected_truck.keys()  # list of truck_key
-                                    if y_sol[(truck_key, cargo_key)]  == 1  ]# if cargo_key is carried by truck_key i.e., y^k_r == 1
-            source = cargo_value[3]
-            while source != cargo_value[-1]: # terminate when reaching cargo arrival node
-                for node_ in selected_node:
+                                        if y_sol[(truck_key, cargo_key)]  == 1  ]# if cargo_key is carried by truck_key i.e., y^k_r == 1
+            n_curr = cargo_value[3]
+            for n_next in selected_node:
+                for truck_key in truck_list:
+                    if n_next!=n_curr and z_sol[(n_curr, n_next, truck_key, cargo_key)] == 1:
+                        if len(cargo_route[cargo_key]) == 0: # append source as the first node
+                            cargo_route[cargo_key].append((truck_key, n_curr))
+                        cargo_route[cargo_key].append((truck_key, n_next))
+                        n_curr = n_next
+                        break
+                else:
+                    continue
+                break
+            while n_curr != cargo_value[-1]:
+                for n_next in selected_node:
                     for truck_key in truck_list:
-                        if node_!=source and y_sol[(truck_key, cargo_key)] == 1\
-                                        and z_sol[(source, node_, truck_key, cargo_key)] == 1: #z_sol: z^{kr}_{ij}, if truck k carries parcel r visit edge (i, j) or not
-                            trucks_per_cargo[cargo_key].append(truck_key)
-                            if len(cargo_route[cargo_key]) == 0: # append source as the first node
-                                cargo_route[cargo_key].append(source)
-                            cargo_route[cargo_key].append((truck_key, node_))
-                            source = node_
-        else:
-            cargo_undelivered.append(cargo_key)
-            cargo_route[cargo_key] = []
-            if verbose > 0: 
-                print(f'+++ Failed to deliver cargo {cargo_key}')
+                        if n_next!=n_curr and z_sol[(n_curr, n_next, truck_key, cargo_key)] == 1:
+                            cargo_route[cargo_key].append((truck_key, n_next))
+                            n_curr = n_next
+                            break
+                    else:
+                        continue
+                    break
 
- 
+    trucks_per_cargo = {cargo_key: [truck_key  for truck_key in selected_truck.keys() if y_sol[(truck_key, cargo_key)]==1 ] for cargo_key, cargo_value in selected_cargo.items()}
+
+
+
+
 
     return truck_used, cargo_delivered, cargo_undelivered, \
            trucks_per_cargo, cargo_in_truck, truck_route, cargo_route 
@@ -364,21 +375,43 @@ def pdpt_route_schedule_decomposition(path_, ins, subroutes, verbose):
     if verbose >0:
         print(f'===== summary of post-processing [{selected_truck.keys()}] route+schedule solution')
         print(f'+++ cargo to truck assignment')
-        for key, value in cargo_in_truck:
+        for key, value in cargo_in_truck.items():
             print(f'      {key}: {value}')
         print(f'+++ truck to cargo assignment')
-        for key, value in trucks_per_cargo:
+        for key, value in trucks_per_cargo.items():
             print(f'      {key}: {value}')
         print(f'+++ truck route')
-        for key, value in truck_route:
+        for key, value in truck_route.items():
             print(f'      {key}: {value}')
         print(f'+++ cargo route')
-        for key, value in cargo_route:
+        for key, value in cargo_route.items():
             print(f'      {key}: {value}')
 
-    return (x_sol, s_sol, z_sol, y_sol, u_sol, D_sol, Db_sol),\
-           (g_sol, h_sol, D_sol), (truck_route, cargo_route),\
-           (truck_cost, travel_cost, transfer_cost)
+    res = {'MP': {'x_sol': x_sol,
+                  's_sol': s_sol,
+                  'z_sol': z_sol,
+                  'y_sol': y_sol,
+                  'u_sol': u_sol,
+                  'D_sol': D_sol,
+                  'Db_sol': Db_sol,
+                 },
+            'SP':{'g_sol': g_sol,
+                  'h_sol': h_sol,
+                  'D_sol': D_sol,
+                 },
+            'route':{'truck_route': truck_route,
+                     'cargo_route': cargo_route,
+                    },
+            'cost':{'truck_cost': truck_cost,
+                    'travel_cost': travel_cost,
+                    'transfer_cost': transfer_cost,
+                    }
+            }
+
+    return res
+    # return (x_sol, s_sol, z_sol, y_sol, u_sol, D_sol, Db_sol),\
+    #        (g_sol, h_sol, D_sol), (truck_route, cargo_route),\
+    #        (truck_cost, travel_cost, transfer_cost)
 
 
 def pdpt_rasd(dir_, verbose = 0):
@@ -396,7 +429,7 @@ def pdpt_rasd(dir_, verbose = 0):
 
     subroutes = select_subroutes(pdpt_ins, cargo_route_file, verbose)
 
-    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_, pdpt_ins, subroutes)
+    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_, pdpt_ins, subroutes, 1)
 
     res = {'MP': {'x_sol': MP_sol[0],
                   'y_sol': MP_sol[1],

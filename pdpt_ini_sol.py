@@ -210,6 +210,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         # but some parameters
         gurobi_log_file = path_ + f'_gurobi/truck{truck_key}.log'
 
+        print(f'truck {truck_key}, selected_cargo\n{selected_cargo}')
         obj_val_MP, runtime_MP, \
         x_sol, _, y_sol, S_sol, D_sol, A_sol, \
         Sb_sol, Db_sol, Ab_sol, \
@@ -228,6 +229,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         #D_sol: D^k_i, depature time of truck k at node i
         #A_sol: A^k_i, arrival time of truck k at node i
 
+        print('y_sol after gurobi', y_sol)
 
 
         ### if origin stage subproblem for the current truck is feasible
@@ -285,10 +287,13 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                 if value == 1:
                     del selected_cargo[key[1]]
 
+        print('y_sol after postprocess', y_sol)
+
         print(f'========= END [PDOTW with truck {truck_key}] ========= \n')
 
     truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest, truck_used_total, truck_route)
 
+    print('y_sol_total', y_sol_total)
     res = {'MIP': {'x_sol': x_sol_total,
                    'y_sol': y_sol_total,
                    'S_sol': S_sol_total,

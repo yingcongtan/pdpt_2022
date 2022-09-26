@@ -361,7 +361,12 @@ def gurobi_master_cycle(constant, selected_cargo,
         destination_cargo = selected_cargo[cargo_][4]
         for node_ in node_list:
             if node_ != origin_cargo and node_ != destination_cargo:
-                MP.addConstr(nodes
+                MP.addConstr(
+                    quicksum(z[(pred_node, node_, truck_, cargo_)] * 1
+                             for pred_node in node_list 
+                             if pred_node != node_
+                             for truck_ in created_truck_all.keys())
+                    ==
                     quicksum(z[(node_, succ_node, truck_, cargo_)] * 1
                              for succ_node in node_list 
                              if succ_node != node_
@@ -1036,6 +1041,7 @@ def MP_to_SP(constant, selected_cargo,
         if s_sol[truck_] == 1:
             print('The truck', truck_, 'is used!')
             truck_MP.append(truck_)
+            print(truck_MP)
     
     # create node_list
     node_list = selected_node
@@ -1410,7 +1416,7 @@ def cpo_sub(constant, selected_cargo,
     # This param is needed for running SP.solve() in linux environment:
     # execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer'
     SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Quiet',
-                          execfile='/opt/ibm/ILOG/CPLEX_Studio221/cpoptimizer/bin/x86-64_linux/cpoptimizer')
+                          execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
     
     feasibility_SP = SP_sol.get_solve_status()
     

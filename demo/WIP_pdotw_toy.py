@@ -149,6 +149,8 @@ def toy_ini_sol(dir_, greedy_initialization, verbose = 0):
     Path(dir_+'/toy_gurobi').mkdir(parents=True, exist_ok=True)
 
     res = solve_pdotw_mip(pdpt_ins, path_, greedy_initialization, verbose)
+
+    print('res[MIP][y_sol]', res['MIP']['y_sol'])
     if verbose >0: 
         print('=========== END INITIAL SOLUTION  =========== \n')
 
@@ -208,38 +210,11 @@ def pdpt_rasd(dir_, verbose = 0):
     ini_sol_res_filename = dir_ + '/toy_initSol.pkl'
     ini_sol_res = read_pickle(ini_sol_res_filename)
 
-    # truck_yCycle_file, truck_used_file, truck_route_file, \
-    # cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    # Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
-
-    # initial_solution = (truck_yCycle_file, truck_used_file, truck_route_file, \
-    #                     cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    #                     Sb_sol_file, Ab_sol_file, Db_sol_file)
-
     
     subroutes = select_subroutes(pdpt_ins, ini_sol_res['route']['cargo_route'], verbose)
 
-    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_+'/toy', pdpt_ins, subroutes, verbose = 0)
-
-    res = {'MP': {'x_sol': MP_sol[0],
-                  'x_sol': MP_sol[1],
-                  'z_sol': MP_sol[2],
-                  'y_sol': MP_sol[3],
-                  'u_sol': MP_sol[4],
-                  'D_sol': MP_sol[5],
-                 },
-            'SP':{'g_sol': SP_sol[0],
-                  'h_sol': SP_sol[1],
-                  'D_sol': SP_sol[-1],
-                 },
-            'route':{'truck_route': route_sol[0],
-                     'cargo_route': route_sol[-1],
-                    },
-            'cost':{'truck_cost': costs[0],
-                    'travel_cost': costs[1],
-                    'transfer_cost': costs[2],}
-            }
-    
+    res = pdpt_route_schedule_decomposition(dir_+'/toy', pdpt_ins, subroutes, verbose = 1)
+  
     res_filename = dir_ + '/toyimprove.pkl'
     with open(res_filename, 'wb') as pickle_file:
         pickle.dump(res, pickle_file)
@@ -627,7 +602,7 @@ def main():
                     '#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e']
     legend_font = font_manager.FontProperties(family='serif',style='normal', size=12)
     
-    # ins = toy_example()
+    ins = toy_example()
 
     # fig1, ax1, title_1 = plot_instance_more_details(dir_, truck_colors, cargo_colors, legend_font)
     # for i in range(len(ax1)):
@@ -636,21 +611,21 @@ def main():
     # fig1.savefig(os.path.join(dir_, 'toy.png'), dpi=150)
 
 
-    # print('=========== Construct IniSol')
-    # toy_ini_sol(dir_, greedy_initialization = False, verbose = 1) 
+    print('=========== Construct IniSol')
+    toy_ini_sol(dir_, greedy_initialization = False, verbose = 1) 
 
 
-    fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
-    ax2.set_title(title_2, size=18, font='serif')
-    fig2.tight_layout()
-    fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
+    # fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
+    # ax2.set_title(title_2, size=18, font='serif')
+    # fig2.tight_layout()
+    # fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
 
-    pdpt_rasd(dir_)
+    # pdpt_rasd(dir_)
 
-    fig3, ax3, title_3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
-    ax3.set_title(title_3, size=18, font='serif')
-    fig3.tight_layout()
-    fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150)
+    # fig3, ax3, title_3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
+    # ax3.set_title(title_3, size=18, font='serif')
+    # fig3.tight_layout()
+    # fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150)
 
 
 if __name__ ==  "__main__":

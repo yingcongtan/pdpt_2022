@@ -5,7 +5,9 @@ import threading
 import datetime
 import networkx as nx
 
-
+def manual_stop():
+    abc = 2
+    assert abc == 1
 # DATA_DIR = '/home/tan/Documents/PDPT_src/data'
 
 def print_dict(dict):
@@ -150,191 +152,191 @@ def generate_node_cargo_size_change(node_list, cargo):
 #####################################################
 # functions to process pdpt data
 
-def store_route_solution_PDPT(filename, cargo, created_truck_yCycle_total, 
-    created_truck_nCycle_total, truck, 
-    truck_used, truck_route, cargo_route, x_sol_total, y_sol_total, 
-    S_sol_total, D_sol_total, A_sol_total, 
-    Sb_sol_total, Db_sol_total, Ab_sol_total):
+# def store_route_solution_PDPT(filename, cargo, created_truck_yCycle_total, 
+#     created_truck_nCycle_total, truck, 
+#     truck_used, truck_route, cargo_route, x_sol_total, y_sol_total, 
+#     S_sol_total, D_sol_total, A_sol_total, 
+#     Sb_sol_total, Db_sol_total, Ab_sol_total):
 
-    """
-    Store solutions of PDPT to .txt
-    Format:
-    all cycle trucks
-    T1 n1 S A D n2 S A D ...
-    ...
-    C1 T1 n1 T1 n2 ...
-    ...
-    """
+#     """
+#     Store solutions of PDPT to .txt
+#     Format:
+#     all cycle trucks
+#     T1 n1 S A D n2 S A D ...
+#     ...
+#     C1 T1 n1 T1 n2 ...
+#     ...
+#     """
 
-    # filename = 'route_solution_PDPT.txt'
+#     # filename = 'route_solution_PDPT.txt'
     
-    with open(filename,'a') as f:
+#     with open(filename,'a') as f:
 
-        ### First record all cycle trucks
-        for t in truck.keys():
-            if t in created_truck_yCycle_total.keys():
-                f.write(str(t) + ' ')
-        f.write('\n') 
+#         ### First record all cycle trucks
+#         for t in truck.keys():
+#             if t in created_truck_yCycle_total.keys():
+#                 f.write(str(t) + ' ')
+#         f.write('\n') 
         
-        ### Second store truck route: (n, S, A, D)
-        for t in truck.keys():
-            # if the truck is used
-            if t in truck_used:
-                f.write(str(t) + ' ')
-                # record the truck route
-                for i in range(len(truck_route[t])):
-                    n = truck_route[t][i]
-                    if i == len(truck_route[t]) - 1:
-                        if t in created_truck_yCycle_total.keys():
-                            f.write(str(n) + ' ')
-                            f.write(str(Sb_sol_total[(n, t)]) + ' ')
-                            f.write(str(Ab_sol_total[(n, t)]) + ' ')
-                            f.write(str(Db_sol_total[(n, t)]) + ' ')
-                        else:
-                            f.write(str(n) + ' ')
-                            f.write(str(S_sol_total[(n, t)]) + ' ')
-                            f.write(str(A_sol_total[(n, t)]) + ' ')
-                            f.write(str(D_sol_total[(n, t)]) + ' ')
-                    else:
-                        f.write(str(n) + ' ')
-                        f.write(str(S_sol_total[(n, t)]) + ' ')
-                        f.write(str(A_sol_total[(n, t)]) + ' ')
-                        f.write(str(D_sol_total[(n, t)]) + ' ')
-                f.write('\n') 
-            # if the truck is not used
-            else:
-                f.write(str(t) + ' ')
-                # keep the truck route empty
-                f.write('\n') 
+#         ### Second store truck route: (n, S, A, D)
+#         for t in truck.keys():
+#             # if the truck is used
+#             if t in truck_used:
+#                 f.write(str(t) + ' ')
+#                 # record the truck route
+#                 for i in range(len(truck_route[t])):
+#                     n = truck_route[t][i]
+#                     if i == len(truck_route[t]) - 1:
+#                         if t in created_truck_yCycle_total.keys():
+#                             f.write(str(n) + ' ')
+#                             f.write(str(Sb_sol_total[(n, t)]) + ' ')
+#                             f.write(str(Ab_sol_total[(n, t)]) + ' ')
+#                             f.write(str(Db_sol_total[(n, t)]) + ' ')
+#                         else:
+#                             f.write(str(n) + ' ')
+#                             f.write(str(S_sol_total[(n, t)]) + ' ')
+#                             f.write(str(A_sol_total[(n, t)]) + ' ')
+#                             f.write(str(D_sol_total[(n, t)]) + ' ')
+#                     else:
+#                         f.write(str(n) + ' ')
+#                         f.write(str(S_sol_total[(n, t)]) + ' ')
+#                         f.write(str(A_sol_total[(n, t)]) + ' ')
+#                         f.write(str(D_sol_total[(n, t)]) + ' ')
+#                 f.write('\n') 
+#             # if the truck is not used
+#             else:
+#                 f.write(str(t) + ' ')
+#                 # keep the truck route empty
+#                 f.write('\n') 
 
-        ### ADD A SEPARATOR
-        f.write('...\n')
+#         ### ADD A SEPARATOR
+#         f.write('...\n')
 
-        ### Third store cargo route: (t, n)
-        for c in cargo.keys():
-            f.write(str(c) + ' ')
-            # record the cargo route (implicitly include transfers)
-            for pair in cargo_route[c]:
-                f.write(str(pair[0]) + ' ')
-                f.write(str(pair[1]) + ' ')
-            f.write('\n') 
+#         ### Third store cargo route: (t, n)
+#         for c in cargo.keys():
+#             f.write(str(c) + ' ')
+#             # record the cargo route (implicitly include transfers)
+#             for pair in cargo_route[c]:
+#                 f.write(str(pair[0]) + ' ')
+#                 f.write(str(pair[1]) + ' ')
+#             f.write('\n') 
     
-def read_route_solution_PDPT(filename, verbose = 0):
+# def read_route_solution_PDPT(filename, verbose = 0):
 
-    """
-    Read the file 'route_solution_PDPT.txt'
-    Produce:
-        truck_yCycle_file = []
-        truck_used_file = []
-        truck_route_file = {}
-        cargo_route_file = {}
-        S_sol_file = {}
-        A_sol_file = {}
-        D_sol_file = {}
-        Sb_sol_file = {}
-        Ab_sol_file = {}
-        Db_sol_file = {}
-    """
+#     """
+#     Read the file 'route_solution_PDPT.txt'
+#     Produce:
+#         truck_yCycle_file = []
+#         truck_used_file = []
+#         truck_route_file = {}
+#         cargo_route_file = {}
+#         S_sol_file = {}
+#         A_sol_file = {}
+#         D_sol_file = {}
+#         Sb_sol_file = {}
+#         Ab_sol_file = {}
+#         Db_sol_file = {}
+#     """
 
-    # filename = 'route_solution_PDPT.txt'   
-    with open(filename) as f: 
+#     # filename = 'route_solution_PDPT.txt'   
+#     with open(filename) as f: 
 
-        # truck_yCycle_file
-        truck_yCycle_file = []
-        line = f.readline()
-        arr = line.split()
-        for t in arr:
-            truck_yCycle_file.append(t)
+#         # truck_yCycle_file
+#         truck_yCycle_file = []
+#         line = f.readline()
+#         arr = line.split()
+#         for t in arr:
+#             truck_yCycle_file.append(t)
 
-        # truck_used_file
-        # truck_route_file
-        # all other sol
-        truck_used_file = []
-        truck_route_file = {}
-        S_sol_file = {}
-        A_sol_file = {}
-        D_sol_file = {}
-        Sb_sol_file = {}
-        Ab_sol_file = {}
-        Db_sol_file = {}
+#         # truck_used_file
+#         # truck_route_file
+#         # all other sol
+#         truck_used_file = []
+#         truck_route_file = {}
+#         S_sol_file = {}
+#         A_sol_file = {}
+#         D_sol_file = {}
+#         Sb_sol_file = {}
+#         Ab_sol_file = {}
+#         Db_sol_file = {}
 
-        line = f.readline()
-        while line and line != '...\n':
-            arr = line.split()
-            t = arr[0]
-            if len(arr) > 1:
-                truck_used_file.append(t)
-            truck_route_file[t] = []
-            for i in range(1, len(arr)):
-                if i % 4 == 1:
-                    n = arr[i]
-                    truck_route_file[t].append(n)
-                if i % 4 == 2:
-                    if (n,t) not in S_sol_file.keys():
-                        S_sol_file[(n,t)] = int(arr[i])
-                    else:
-                        Sb_sol_file[(n,t)] = int(arr[i])
-                if i % 4 == 3:
-                    if (n,t) not in A_sol_file.keys():
-                        A_sol_file[(n,t)] = int(arr[i])
-                    else:
-                        Ab_sol_file[(n,t)] = int(arr[i])
-                if i % 4 == 0:
-                    if (n,t) not in D_sol_file.keys():
-                        D_sol_file[(n,t)] = int(arr[i])
-                    else:
-                        Db_sol_file[(n,t)] = int(arr[i])
-            line = f.readline()
+#         line = f.readline()
+#         while line and line != '...\n':
+#             arr = line.split()
+#             t = arr[0]
+#             if len(arr) > 1:
+#                 truck_used_file.append(t)
+#             truck_route_file[t] = []
+#             for i in range(1, len(arr)):
+#                 if i % 4 == 1:
+#                     n = arr[i]
+#                     truck_route_file[t].append(n)
+#                 if i % 4 == 2:
+#                     if (n,t) not in S_sol_file.keys():
+#                         S_sol_file[(n,t)] = int(arr[i])
+#                     else:
+#                         Sb_sol_file[(n,t)] = int(arr[i])
+#                 if i % 4 == 3:
+#                     if (n,t) not in A_sol_file.keys():
+#                         A_sol_file[(n,t)] = int(arr[i])
+#                     else:
+#                         Ab_sol_file[(n,t)] = int(arr[i])
+#                 if i % 4 == 0:
+#                     if (n,t) not in D_sol_file.keys():
+#                         D_sol_file[(n,t)] = int(arr[i])
+#                     else:
+#                         Db_sol_file[(n,t)] = int(arr[i])
+#             line = f.readline()
         
-        # cargo_route_file
-        cargo_route_file = {}
-        line = f.readline()
-        while line:
-            arr = line.split()
-            c = arr[0]
-            cargo_route_file[c] = []
-            for i in range(1, len(arr)):
-                if i % 2 == 1:
-                    t = arr[i]
-                if i % 2 == 0:
-                    n = arr[i]
-                    cargo_route_file[c].append((t,n))
-            line = f.readline()
+#         # cargo_route_file
+#         cargo_route_file = {}
+#         line = f.readline()
+#         while line:
+#             arr = line.split()
+#             c = arr[0]
+#             cargo_route_file[c] = []
+#             for i in range(1, len(arr)):
+#                 if i % 2 == 1:
+#                     t = arr[i]
+#                 if i % 2 == 0:
+#                     n = arr[i]
+#                     cargo_route_file[c].append((t,n))
+#             line = f.readline()
 
-    if verbose > 0:
-        print(f'====== Summary of {filename}')
-        print(f'The truck_yCycle_file, size: {len(truck_yCycle_file)}')
-        print(truck_yCycle_file)
-        print(f'The truck_used_file, size: {len(truck_used_file)}')
-        print(truck_used_file)
-        print(f'The truck_route_file, size: {len(truck_route_file)}')
-        for t, v in truck_route_file.items():
-            print(t, v)
-        print(f'The cargo_route_file, size: {len(cargo_route_file)}')
-        for c, v in cargo_route_file.items():
-            print(c, v)
-        print(f'The S_sol_file, size: {len(S_sol_file)}')
-        for k, v in S_sol_file.items():
-            print(k, v)
-        print(f'The A_sol_file, size: {len(A_sol_file)}')
-        for k, v in A_sol_file.items():
-            print(k, v)
-        print(f'The D_sol_file, size: {len(D_sol_file)}')
-        for k, v in D_sol_file.items():
-            print(k, v)
-        print(f'The Sb_sol_file, size: {len(Sb_sol_file)}')
-        for k, v in Sb_sol_file.items():
-            print(k, v)
-        print(f'The Ab_sol_file, size: {len(Ab_sol_file)}')
-        for k, v in Ab_sol_file.items():
-            print(k, v)
-        print(f'The Db_sol_file, size: {len(Db_sol_file)}')
-        for k, v in Db_sol_file.items():
-            print(k, v)
+#     if verbose > 0:
+#         print(f'====== Summary of {filename}')
+#         print(f'The truck_yCycle_file, size: {len(truck_yCycle_file)}')
+#         print(truck_yCycle_file)
+#         print(f'The truck_used_file, size: {len(truck_used_file)}')
+#         print(truck_used_file)
+#         print(f'The truck_route_file, size: {len(truck_route_file)}')
+#         for t, v in truck_route_file.items():
+#             print(t, v)
+#         print(f'The cargo_route_file, size: {len(cargo_route_file)}')
+#         for c, v in cargo_route_file.items():
+#             print(c, v)
+#         print(f'The S_sol_file, size: {len(S_sol_file)}')
+#         for k, v in S_sol_file.items():
+#             print(k, v)
+#         print(f'The A_sol_file, size: {len(A_sol_file)}')
+#         for k, v in A_sol_file.items():
+#             print(k, v)
+#         print(f'The D_sol_file, size: {len(D_sol_file)}')
+#         for k, v in D_sol_file.items():
+#             print(k, v)
+#         print(f'The Sb_sol_file, size: {len(Sb_sol_file)}')
+#         for k, v in Sb_sol_file.items():
+#             print(k, v)
+#         print(f'The Ab_sol_file, size: {len(Ab_sol_file)}')
+#         for k, v in Ab_sol_file.items():
+#             print(k, v)
+#         print(f'The Db_sol_file, size: {len(Db_sol_file)}')
+#         for k, v in Db_sol_file.items():
+#             print(k, v)
 
-    return truck_yCycle_file, truck_used_file, truck_route_file, \
-           cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-           Sb_sol_file, Ab_sol_file, Db_sol_file
+#     return truck_yCycle_file, truck_used_file, truck_route_file, \
+#            cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
+#            Sb_sol_file, Ab_sol_file, Db_sol_file
 
 def group_cycle_truck(created_truck):
     """

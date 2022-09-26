@@ -1,5 +1,5 @@
 from src.pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, capacity_checker_cluster
-from src.util import read_pickle, read_route_solution_PDPT, group_cycle_truck 
+from src.util import read_pickle, read_route_solution_PDPT, group_cycle_truck, manual_stop
 import numpy as np
 import random, sys, time
 import pickle
@@ -76,25 +76,31 @@ def select_subroutes(ins, cargo_route_file, verbose):
             for c_key in cargo_keys: 
                 selected_cargo[c_key] = cargo[c_key]
 
-        
-        for v in selected_cargo.values():
-            if v[3] not in selected_node:
-                selected_node.append(v[3])
-            if v[4] not in selected_node:
-                selected_node.append(v[4])
-        if truck_value[0] not in selected_node:
-            selected_node.append(truck_value[0])
-        if truck_value[1] not in selected_node:
-            selected_node.append(truck_value[1])
+    # add undelivered cargos
+    for cargo_key, cargo_route in cargo_route_file.items():
+        if len(cargo_route) == 0:
+                selected_cargo[cargo_key] = cargo[cargo_key]
+
+
+    for v in selected_cargo.values():
+        if v[3] not in selected_node:
+            selected_node.append(v[3])
+        if v[4] not in selected_node:
+            selected_node.append(v[4])
+    if truck_value[0] not in selected_node:
+        selected_node.append(truck_value[0])
+    if truck_value[1] not in selected_node:
+        selected_node.append(truck_value[1])
 
     edges_ = list(set([(i,j) for i in selected_node for j in selected_node]))
 
     for i,j in edges_:
         selected_edge[(i,j)] = edge_shortest[(i,j)]
 
+
     return selected_cargo, selected_truck, selected_node, selected_edge
 
-def postprocess_pdpt_solution(subroutes, x_sol, y_sol, z_sol, u_sol, verbose = 0):
+def postprocess_pdpt_solution(subroutes, x_sol, s_sol, y_sol, z_sol, u_sol, verbose = 0):
 
     selected_cargo, selected_truck, selected_node, selected_edge = subroutes
 
@@ -147,20 +153,24 @@ def postprocess_pdpt_solution(subroutes, x_sol, y_sol, z_sol, u_sol, verbose = 0
 
     # postprocess truck_route
     for truck_key in selected_truck:
-        source = selected_truck[truck_key][0] # starting from the origin node of each truck
-        for node_ in selected_node:
-            if node_ != source and x_sol[(source, node_, truck_key)] == 1: # find node_ such that x[source, node_, truck_key] == 1
-                if len(truck_route[truck_key]) == 0: # append source as the first node
-                        truck_route[truck_key].append(source)
-                truck_route[truck_key].append(node_)
-                source = node_
-                break
-        while source != selected_truck[truck_key][1]: # terminate when reach the arival node of each truck
+        if s_sol[truck_key] == 1:
+            source = selected_truck[truck_key][0] # starting from the origin node of each truck
             for node_ in selected_node:
                 if node_ != source and x_sol[(source, node_, truck_key)] == 1: # find node_ such that x[source, node_, truck_key] == 1
+
+                    if len(truck_route[truck_key]) == 0: # append source as the first node
+                            truck_route[truck_key].append(source)
                     truck_route[truck_key].append(node_)
                     source = node_
                     break
+            while source != selected_truck[truck_key][1]: # terminate when reach the arival node of each truck
+                for node_ in selected_node:
+                    if node_ != source and x_sol[(source, node_, truck_key)] == 1: # find node_ such that x[source, node_, truck_key] == 1
+                        truck_route[truck_key].append(node_)
+                        source = node_
+                        break
+        else:
+            truck_route[truck_key] = []
 
     # RECALL, cargo is a dictionary with the following format:
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
@@ -185,12 +195,13 @@ def postprocess_pdpt_solution(subroutes, x_sol, y_sol, z_sol, u_sol, verbose = 0
             cargo_route[cargo_key] = []
             if verbose > 0: 
                 print(f'+++ Failed to deliver cargo {cargo_key}')
+
  
 
     return truck_used, cargo_delivered, cargo_undelivered, \
            trucks_per_cargo, cargo_in_truck, truck_route, cargo_route 
            
-def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, verbose):
+def pdpt_route_schedule_decomposition(path_, ins, subroutes, verbose):
     """
     The main function of PDPT decomposition
     input: ct = count
@@ -207,26 +218,13 @@ def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, v
     """    
 
 
-    truck_route_file = initial_solution['truck_route']
-    cargo_route_file = initial_solution['cargo_route']
-    
+
     truck = ins['truck']
-    # cargo = ins['cargo']
-    # edges = ins['edges']
-    # node_list = ins['nodes']
     constant = ins['constant']
-    # node_cargo_size_change = ins['node_cargo_size_change']
-    # edge = ins['edge_shortest']
-    # path_shortest = ins['path_shortest']
     # single_truck_deviation = ins['single_truck_deviation']
         
     selected_cargo, selected_truck, selected_node, selected_edge = subroutes
-
-    for cargo_key in selected_cargo:
-        cargo_route_file[cargo_key] = []
-    for truck_key in selected_truck:
-        truck_route_file[truck_key] = []
-        truck_route_file[truck_key].append(truck[truck_key][0])
+    print('selected_truck', selected_truck)
 
     # Setting parameters for clustering cargo and truck 
     runtime = 100
@@ -274,6 +272,8 @@ def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, v
         created_truck_yCycle, created_truck_nCycle, created_truck_all, 
         selected_edge, selected_node, runtime*1, gurobi_log_file, verbose)
 
+    gurobi_log_file_ = path_ + f'_gurobi/rasd_MP_repair.log'
+
     if obj_val_MP < 0:
         print(f'MP infeasible, apply greedy heuristics to fix MP')
         infeasible_clusters.append([selected_truck.keys()])
@@ -282,7 +282,7 @@ def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, v
         x_sol, s_sol, z_sol, y_sol, u_sol, D_sol = \
         greedy_fix_MP(constant, selected_cargo, 
             created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-            selected_edge, selected_node, runtime)
+            selected_edge, selected_node, runtime, gurobi_log_file_)
 
         # find removed cargo from MP
         for c in selected_cargo_removed.keys():
@@ -359,7 +359,7 @@ def pdpt_route_schedule_decomposition(path_, ins, initial_solution, subroutes, v
     
 
     truck_used, cargo_delivered, cargo_undelivered, \
-    trucks_per_cargo, cargo_in_truck, truck_route, cargo_route =  postprocess_pdpt_solution(subroutes, x_sol, y_sol, z_sol, u_sol, verbose)
+    trucks_per_cargo, cargo_in_truck, truck_route, cargo_route =  postprocess_pdpt_solution(subroutes, x_sol, s_sol, y_sol, z_sol, u_sol, verbose)
     
     if verbose >0:
         print(f'===== summary of post-processing [{selected_truck.keys()}] route+schedule solution')
@@ -394,7 +394,7 @@ def pdpt_rasd(dir_, verbose = 0):
 
     subroutes = select_subroutes(pdpt_ins, cargo_route_file, verbose)
 
-    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(pdpt_ins, initial_solution, subroutes)
+    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_, pdpt_ins, subroutes)
 
     res = {'MP': {'x_sol': MP_sol[0],
                   'x_sol': MP_sol[1],

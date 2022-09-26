@@ -135,7 +135,8 @@ def postprocess_solution_pdotw(cargo, truck,
     if verbose > 0: 
         print('+++ The truck_route:')
     for key, value in truck_route.items():
-        print(f'        {key, value}')
+        if verbose >0:
+            print(f'        {key, value}')
     
     ###### CARGO ######
 
@@ -198,8 +199,6 @@ def postprocess_solution_pdotw(cargo, truck,
         # if the c is carried by truck t
         if (t,c) in y_sol.keys() and y_sol[(t,c)] == 1:
             cargo_truck_origin[c] = t
-                
-            
     
     if verbose > 0:
         print('+++ Summary of postprocessing')
@@ -235,7 +234,7 @@ def pdotw_mip_gurobi(constant,
     selected_cargo, single_truck_deviation,
     created_truck_yCycle, created_truck_nCycle, created_truck_all,
     node_list_truck_hubs, selected_edge, node_cargo_size_change, 
-    runtime, filename, verbose = 1):
+    runtime, filename, verbose = 0):
     
     """
     This is the gurobi_PDPTW_cycle_node_list_oneTruck_deviation in jason's code (oneTruck_clean.ipynb)
@@ -832,7 +831,7 @@ def pdotw_mip_gurobi(constant,
     if verbose > 0:
         print('+++ MP [Feasible] ')
         print("   [Gurobi obj value] is %i" % obj_val_MP)
-        print("   [The ]Gurobi runtime] is %f" % runtime_MP)
+        print("   [Gurobi runtime] is %f" % runtime_MP)
     
     
     

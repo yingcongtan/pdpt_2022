@@ -908,7 +908,7 @@ def candidate_gen_removed_cargo(size_element, selected_cargo):
 
 def greedy_fix_MP(constant, selected_cargo, 
     created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-    selected_edge, selected_node, runtime):
+    selected_edge, selected_node, runtime, filename):
     
     """
     Greedy heuristic to remove a parcel
@@ -985,7 +985,7 @@ def greedy_fix_MP(constant, selected_cargo,
             cost_truck_value, cost_travel_value, cost_transfer_value = \
             gurobi_master_cycle(constant, selected_cargo, 
                 created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-                selected_edge, selected_node, runtime)
+                selected_edge, selected_node, runtime, filename)
 
             # if feasible, break
             if obj_val_MP > 0:

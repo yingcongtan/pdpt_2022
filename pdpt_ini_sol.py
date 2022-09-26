@@ -161,7 +161,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
         if verbose >0:
             print(f'+++ Preprocess data to instantiate a PDOTW MIP')
-        if verbose > 1:
+        if verbose > 2:
             print(f'    [selected_cargo] size: {len(selected_cargo)}')
             for key, value in selected_cargo.items():
                 print(f'        {key, value}')
@@ -180,26 +180,26 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         created_truck_yCycle, created_truck_nCycle, created_truck_all = \
         group_cycle_truck(created_truck)  
         
-        if verbose > 1:
+        if verbose > 2:
             print('    [created_truck_yCycle]', created_truck_yCycle)
             print('    [created_truck_nCycle]', created_truck_nCycle)
 
-        if verbose > 1: 
+        if verbose > 2: 
             print('    [The created_truck_yCycle]')  
         for key, value in created_truck_yCycle.items():
-            if verbose > 1: 
+            if verbose > 2: 
                 print(f'       {key, value}')
             created_truck_yCycle_total[key] = value
-        if verbose > 1: 
+        if verbose > 2: 
             print('    [The created_truck_nCycle]') 
         for key, value in created_truck_nCycle.items():
-            if verbose > 1: 
+            if verbose > 2: 
                 print(f'       {key, value}')
             created_truck_nCycle_total[key] = value
-        if verbose > 1: 
+        if verbose > 2: 
             print('    [The created_truck_all]') 
         for key, value in created_truck_all.items():
-            if verbose > 1: 
+            if verbose > 2: 
                 print(f'       {key, value}')
             created_truck_all_total[key] = value
 
@@ -219,7 +219,16 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         selected_cargo, single_truck_deviation,
         created_truck_yCycle, created_truck_nCycle, created_truck_all,
         node_list_truck_hubs, selected_edge, node_cargo_size_change,
-        100, gurobi_log_file, 1)
+        100, gurobi_log_file, verbose = 1)
+
+        # Index k for truck is pre-defined
+        #x_sol: x^k_{ij}, if truck k visit edge (i,j) or not
+        #y_sol: y^k_r, if parcel r is carried by truck k
+        #s_sol: x^k_i, total size of cargos on truck k at node i
+        #D_sol: D^k_i, depature time of truck k at node i
+        #A_sol: A^k_i, arrival time of truck k at node i
+
+
 
         ### if origin stage subproblem for the current truck is feasible
         if obj_val_MP >= 0:
@@ -253,7 +262,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
             postprocess_solution_pdotw(cargo, truck, 
             selected_cargo, created_truck_all,
             node_list_truck_hubs, 
-            x_sol, y_sol, truck_route, cargo_route)
+            x_sol, y_sol, truck_route, cargo_route, verbose = verbose-2)
             
             for truck_ in truck_used:
                 if truck_ not in truck_used_total:
@@ -279,21 +288,39 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         print(f'========= END [PDOTW with truck {truck_key}] ========= \n')
 
     truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest, truck_used_total, truck_route)
-    res = {'truck_yCycle': list(created_truck_yCycle_total.keys()),
-           'used_truck': truck_used_total,
-           'truck_route': truck_route,
-           'cargo_route': cargo_route,
-           'x_sol': x_sol_total,
-           'y_sol': y_sol_total,
-           'S_sol': S_sol_total,
-           'D_sol': D_sol_total,
-           'A_sol': A_sol_total,
-           'Sb_sol': Sb_sol_total,
-           'Db_sol': Db_sol_total,
-           'Ab_sol': Ab_sol_total,
-           'truck_cost' : truck_cost,
-           'travel_cost' : travel_cost,
+
+    res = {'MIP': {'x_sol': x_sol_total,
+                   'y_sol': y_sol_total,
+                   'S_sol': S_sol_total,
+                   'D_sol': D_sol_total,
+                   'A_sol': A_sol_total,
+                   'Sb_sol': Sb_sol_total,
+                   'Db_sol': Db_sol_total,
+                   'Ab_sol': Ab_sol_total,
+                  },
+           'route': {'used_truck': truck_used_total,
+                     'truck_route': truck_route,
+                     'cargo_route': cargo_route,
+                    },
+           'cost': {'truck_cost' : truck_cost,
+                    'travel_cost' : travel_cost,
+                    },
           }
+    # res = {'truck_yCycle': list(created_truck_yCycle_total.keys()),
+    #        'used_truck': truck_used_total,
+    #        'truck_route': truck_route,
+    #        'cargo_route': cargo_route,
+    #        'x_sol': x_sol_total,
+    #        'y_sol': y_sol_total,
+    #        'S_sol': S_sol_total,
+    #        'D_sol': D_sol_total,
+    #        'A_sol': A_sol_total,
+    #        'Sb_sol': Sb_sol_total,
+    #        'Db_sol': Db_sol_total,
+    #        'Ab_sol': Ab_sol_total,
+    #        'truck_cost' : truck_cost,
+    #        'travel_cost' : travel_cost,
+    #       }
 
     if verbose > 1:
         print('+++ Summary of the initial solution')

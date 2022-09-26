@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import sqrt
 import os, sys
+from math import sqrt
+import matplotlib as mpl
 
 # src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
 # sys.path.insert(1, src_dir_)
@@ -20,6 +22,8 @@ from pathlib import Path
 from matplotlib.lines import Line2D
 import matplotlib.font_manager as font_manager
 from math import ceil
+
+
 
 # Please update dir_ to the folder where you wan to save files
 dir_ = '/home/tan/Documents/GitHub/pdpt_2022/toy'
@@ -51,24 +55,24 @@ def toy_example():
     #     [3.75, -2.00], #node 16
     #     ]
 
-    loc = [[0.00,  0.00], #node 1
-           [150,  -50], #node 2
-           [200,  -75], #node 3
-           [250,  -75], #node 4
-           [350,  -75], #node 5
-           [400,  -50], #node 6
-           [500,  -75], #node 7
-           [520,  -175], #node 8
-           [300,  -50], #node 9
-           [450,   00], #node 10
-           [100, -125], #node 11
-           [ 75, -175], #node 12
-           [ 25, -200], #node 13
-           [250, -175], #node 14
-           [300, -250], #node 15
-           [375, -200], #node 16
+    loc = [[  0,    0], #node 0
+           [150,  -50], #node 1
+           [200,  -95], #node 2
+           [250,  -75], #node 3
+           [350, -110], #node 4
+           [400,  -50], #node 5
+           [500,  -80], #node 6
+           [520, -175], #node 7
+           [300,  -50], #node 8
+           [450,   00], #node 9
+           [100, -125], #node 10
+           [ 75, -175], #node 11
+           [ 25, -200], #node 12
+           [250, -175], #node 13
+           [300, -250], #node 14
+           [375, -200], #node 15
            ]
-    node_list = [f'N{i+1}' for i in range(num_node)]
+    node_list = [i for i in range(num_node)]
 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
     # cargo = {'C1': [10, 0, 100, '0',  '1'], #cargo 1
@@ -80,14 +84,14 @@ def toy_example():
     #         'C7': [10, 0, 100, '13', '15'], #cargo 7
     #         'C8': [10, 0, 100,  '2', '14'], #cargo 8
     #         }
-    cargo = {'C1': [100, 0, 10000, 0,  1], #cargo 1
-             'C2': [100, 0, 10000, 10, 11], #cargo 2
-             'C3': [100, 0, 10000,  9, 12], #cargo 3
-             'C4': [100, 0, 10000,  2,  6], #cargo 4
-             'C5': [100, 0, 10000,  8,  3], #cargo 5
-             'C6': [100, 0, 10000,  4,  6], #cargo 6
-             'C7': [100, 0, 10000, 13, 15], #cargo 7
-             'C8': [100, 0, 10000,  2, 14] #cargo 8
+    cargo = {'C1': [100, 0, 1000,  0,   1],  #cargo 1
+             'C2': [300, 0, 1000, 10, 11],  #cargo 2
+             'C3': [200, 0,  800,  9, 12],  #cargo 3
+             'C4': [200, 0,  800,  2,  7],  #cargo 4
+             'C5': [200, 0,  800,  8,  3],  #cargo 5
+             'C6': [100, 0,  800,  4,  6],  #cargo 6
+             'C7': [200, 0,  800, 13, 15],  #cargo 7
+             'C8': [300, 0,  800,  5, 14]   #cargo 8
             }
     
 
@@ -97,12 +101,13 @@ def toy_example():
     #          'T2':[ '9', '12', 100, 100],
     #          'T3':[ '3', '15', 100, 100],
     #         }
-    truck = {'T1':[ 0,  7, 5000, 100],
-             'T2':[ 9, 12, 5000, 100],
-             'T3':[ 3, 15, 5000, 100]
+    truck = {'T1':[ 0,  7, 1000, 500],
+             'T2':[ 9, 12, 1000, 500],
+             'T3':[ 3, 15, 1000, 500]
             }
     # edge_shortest = {(i,j): round(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2),2) for i in range(num_node) for j in range(num_node)}
     edge_shortest = {(i,j): int(sqrt((loc[i][0]-loc[j][0])**2 +(loc[i][1]-loc[j][1])**2)) for i in range(num_node) for j in range(num_node)}
+    # print(np.mean([e_ for e_ in edge_shortest.values()]))
     node_cargo_size_change = generate_node_cargo_size_change(node_list, cargo)
     single_truck_deviation = calculate_single_truck_deviation(truck, cargo, edge_shortest)
 
@@ -211,9 +216,10 @@ def pdpt_rasd(dir_, verbose = 0):
     #                     cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
     #                     Sb_sol_file, Ab_sol_file, Db_sol_file)
 
-    subroutes = select_subroutes(pdpt_ins, ini_sol_res['cargo_route'], verbose)
+    
+    subroutes = select_subroutes(pdpt_ins, ini_sol_res['route']['cargo_route'], verbose)
 
-    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_+'/toy', pdpt_ins, ini_sol_res, subroutes, verbose = 0)
+    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_+'/toy', pdpt_ins, subroutes, verbose = 0)
 
     res = {'MP': {'x_sol': MP_sol[0],
                   'x_sol': MP_sol[1],
@@ -252,8 +258,8 @@ def toy_eval_pdpt_sol(dir_, rasd_sol_filename, verbose = 0):
     ini_sol_res_filename = dir_ + '/toy_initSol.pkl'
     ini_sol_res = read_pickle(ini_sol_res_filename)
 
-    truck_used_file = ini_sol_res['used_truck']
-    truck_route_file = ini_sol_res['truck_route']
+    truck_used_file = ini_sol_res['route']['used_truck']
+    truck_route_file = ini_sol_res['route']['truck_route']
 
     
     with open(rasd_sol_filename, 'rb') as pickle_file:
@@ -317,10 +323,13 @@ def plot_instance(dir_, truck_colors, cargo_colors, font):
 
 def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
 
+    ms = 20
+    radius = sqrt(ms)/2.
 
     pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = 0) 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
     cargo_list = pdpt_ins['cargo']
+    truck_list = pdpt_ins['truck']
     node_coor = pdpt_ins['loc']
     constant = pdpt_ins['constant']
     edge_shortest = pdpt_ins['edge_shortest']
@@ -329,8 +338,8 @@ def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
 
     ini_sol_res = read_pickle(ini_Sol_res_filename)
 
-    truck_route = ini_sol_res['truck_route']
-    truck_used = ini_sol_res['used_truck']
+    truck_route = ini_sol_res['route']['truck_route']
+    truck_used = ini_sol_res['route']['used_truck']
 
 
     truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest,truck_used, truck_route)
@@ -341,54 +350,91 @@ def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
     fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
     ax1.axis('off')
     
+    # plot location of cargo origin and destination
     cargo_idx = 0
     for cargo_key, cargo_value in cargo_list.items():
         source, dest = int(cargo_value[-2]), int(cargo_value[-1])
         ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
-                 mec='k', ms=10)
+                 mec='k', ms=ms)
         ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
-                 mec='k', ms=10)
-
+                 mec='k', ms=ms)
         cargo_idx+=1
         
+
+    # plot the route of each truck
     truck_idx = 0
     for truck_key, route_ in truck_route.items():
         for i in range(len(route_)-1):
             node_curr, node_next = int(route_[i]), int(route_[i+1])
             x0, y0 = node_coor[node_curr]
-            dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
-            ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
-                      length_includes_head = True, linewidth=2, linestyle=':',
-                      alpha=0.3+truck_idx*0.1)
+            # dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
+            x1, y1 = node_coor[node_next]
+            # ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], 
+            #           width = 1, head_width=4, head_length=2,
+            #           length_includes_head = True, linewidth=2, linestyle='-',
+            #           alpha=0.3+truck_idx*0.1)
+            arrow = mpl.patches.FancyArrowPatch(posA=(x0,y0), posB=(x1,y1), 
+                                    arrowstyle='-|>', mutation_scale=20, 
+                                    shrinkA=radius, shrinkB=radius*2,
+                                    color = truck_colors[truck_idx], 
+                                    alpha=0.3+truck_idx*0.1, linewidth=1.5,)
+            ax1.add_patch(arrow)
         truck_idx += 1
-        
-    legend_elements = [Line2D([0], [0],  marker='^', color='w', label='origin',
+
+    # plot the location of truck origin and destination
+    truck_idx = 0
+    for truck_key, truck_value in truck_list.items():
+        source, dest = int(truck_value[0]), int(truck_value[1])
+        ax1.plot(*node_coor[source], 'p', mec = truck_colors[truck_idx],
+                 mfc='None', ms=ms*1.5, alpha =0.6, lw=2)
+        ax1.plot(*node_coor[dest], 's', mec = truck_colors[truck_idx],
+                 mfc='None', ms=ms*1.5, alpha =0.6, lw=2)
+        # ax1.text(*(np.array(node_coor[source]).T -5), f'{truck_key}', font='serif', size=10)
+        # ax[1].text(*(np.array(node_coor[dest]).T -5), f'{truck_key}', font='serif', size=10)
+        truck_idx +=1
+
+    # add legend for parcel origin and destination
+    legend_elements = [Line2D([0], [0],  marker='^', color='w', label='parcel_origin',
                           markerfacecolor='None', mec='k',  markersize=10),
-                       Line2D([0], [0],  marker='o', color='w', label='destination',
+                       Line2D([0], [0],  marker='o', color='w', label='parcek_dest',
                           markerfacecolor='None', mec='k', markersize=10)]
-    
+    # add legend for truck origin and destination
+    legend_elements.append(Line2D([0], [0],  marker='p', color='w', label='truck_origin',
+                          markerfacecolor='None', mec='k',  markersize=10))
+    legend_elements.append(Line2D([0], [0],  marker='s', color='w', label='truck_dest',
+                          markerfacecolor='None', mec='k',  markersize=10))
+    # add legend for truck route
     for i in range(len(truck_colors)):
         legend_elements.append(Line2D([0], [0], color=truck_colors[i], 
                              lw=4, alpha=0.3+truck_idx*0.1, label=f'Truck {i+1}'))
 
     ax1.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05),
-              fancybox=True, shadow=True, ncol=5, prop = font)
-            
+              fancybox=True, shadow=True, ncol=4, prop = font)
+
+    rec = [plt.Rectangle(
+            # (lower-left corner), width, height
+            (0.02, 0.02), 0.97, 0.97, fill=False, color="k", lw=2, 
+            zorder=1000, transform=fig1.transFigure, figure=fig1)]
+    fig1.patches.extend(rec)
 
     
     return fig1, ax1, title
 
 def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
 
+    ms = 20
+    radius = sqrt(ms)/2.
+
     ini_sol_res_filename = dir_ + '/toy_initSol.pkl'
     ini_sol_res = read_pickle(ini_sol_res_filename)
-    truck_route_file = ini_sol_res['truck_route']
+    truck_route_file = ini_sol_res['route']['truck_route']
 
     pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = 0) 
 
     # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
     cargo_list = pdpt_ins['cargo']
     node_coor = pdpt_ins['loc']
+    truck_list = pdpt_ins['truck']
 
     
     filename = dir_ + '/toyimprove.pkl'
@@ -405,9 +451,9 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
     for cargo_key, cargo_value in cargo_list.items():
         source, dest = int(cargo_value[-2]), int(cargo_value[-1])
         ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
-                 mec='k', ms=10, label='_nolegend_')
+                 mec='k', ms=ms, label='_nolegend_')
         ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
-                 mec='k', ms=10, label='_nolegend_')
+                 mec='k', ms=ms, label='_nolegend_')
 
         cargo_idx+=1
 
@@ -418,21 +464,55 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
             for i in range(len(route_)-1):
                 node_curr, node_next = int(route_[i]), int(route_[i+1])
                 x0, y0 = node_coor[node_curr]
-                dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
-                ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
-                          length_includes_head = True, linewidth=2, linestyle=':',
-                          alpha=0.3+truck_idx*0.1)
+                x1, y1 = node_coor[node_next]
+                arrow = mpl.patches.FancyArrowPatch(posA=(x0,y0), posB=(x1,y1), 
+                                        arrowstyle='-|>', mutation_scale=20, 
+                                        shrinkA=radius, shrinkB=radius*2,
+                                        color = truck_colors[truck_idx], 
+                                        alpha=0.3+truck_idx*0.1, linewidth=1.5,)
+                ax1.add_patch(arrow)
             truck_idx += 1
         elif truck_key not in trucks_in_subroute:
             for i in range(len(route_)-1):
                 node_curr, node_next = int(route_[i]), int(route_[i+1])
                 x0, y0 = node_coor[node_curr]
-                dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
-                ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
-                          length_includes_head = True, linewidth=2, linestyle=':',
-                          alpha=0.3+truck_idx*0.1)
+                x1, y1 = node_coor[node_next]
+                arrow = mpl.patches.FancyArrowPatch(posA=(x0,y0), posB=(x1,y1), 
+                                        arrowstyle='-|>', mutation_scale=20, 
+                                        shrinkA=radius, shrinkB=radius*2,
+                                        color = truck_colors[truck_idx], 
+                                        alpha=0.3+truck_idx*0.1, linewidth=1.5,)
+                ax1.add_patch(arrow)
             truck_idx += 1
-            
+
+    # plot the location of truck origin and destination
+    truck_idx = 0
+    for truck_key, truck_value in truck_list.items():
+        source, dest = int(truck_value[0]), int(truck_value[1])
+        ax1.plot(*node_coor[source], 'p', mec = truck_colors[truck_idx],
+                 mfc='None', ms=ms*1.5, alpha =0.6, lw=2)
+        ax1.plot(*node_coor[dest], 's', mec = truck_colors[truck_idx],
+                 mfc='None', ms=ms*1.5, alpha =0.6, lw=2)
+        # ax1.text(*(np.array(node_coor[source]).T -5), f'{truck_key}', font='serif', size=10)
+        # ax[1].text(*(np.array(node_coor[dest]).T -5), f'{truck_key}', font='serif', size=10)
+        truck_idx +=1
+
+    # add legend for parcel origin and destination
+    legend_elements = [Line2D([0], [0],  marker='^', color='w', label='parcel_origin',
+                          markerfacecolor='None', mec='k',  markersize=10),
+                       Line2D([0], [0],  marker='o', color='w', label='parcek_dest',
+                          markerfacecolor='None', mec='k', markersize=10)]
+    # add legend for truck origin and destination
+    legend_elements.append(Line2D([0], [0],  marker='p', color='w', label='truck_origin',
+                          markerfacecolor='None', mec='k',  markersize=10))
+    legend_elements.append(Line2D([0], [0],  marker='s', color='w', label='truck_dest',
+                          markerfacecolor='None', mec='k',  markersize=10))
+    # add legend for truck route
+    for i in range(len(truck_colors)):
+        legend_elements.append(Line2D([0], [0], color=truck_colors[i], 
+                             lw=4, alpha=0.3+truck_idx*0.1, label=f'Truck {i+1}'))
+
+
     rasd_sol_filename = dir_ + '/toyimprove.pkl'
     truck_cost, travel_cost, transfer_cost = toy_eval_pdpt_sol(dir_, rasd_sol_filename)
     title = f'Sol. 1 iter RASD [{truck_cost}+{travel_cost}+{transfer_cost}]'
@@ -452,6 +532,95 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
     
     return fig1, ax1, title
 
+def plot_instance_more_details(dir_, truck_colors, cargo_colors, font):
+
+    ms, mew = 25, 2
+
+    pdpt_ins = read_pickle(os.path.join(dir_, 'toy.pkl'))
+    cargo_list = pdpt_ins['cargo']
+    truck_list = pdpt_ins['truck'] # truck['nb_truck'] = ['departure_node', 'arrival_node', 'max_worktime', 'max_capacity']
+    node_coor = pdpt_ins['loc']
+
+    fig, ax = plt.subplots(3,1, figsize=(10, 15))
+
+    for node_ in range(len(node_coor)):
+        ax[0].plot(*node_coor[node_], 'o', mfc='None', mew=mew,
+                mec='k', ms=ms)
+        ax[0].text(*(np.array(node_coor[node_]).T -5), f'{node_}', font='serif', size=10)
+
+
+    truck_origin = [truck_value[0] for _, truck_value in truck_list.items()]
+    truck_dest = [truck_value[1] for _, truck_value in truck_list.items()]
+
+    truck_idx = 0
+    for truck_key, truck_value in truck_list.items():
+        source, dest = int(truck_value[0]), int(truck_value[1])
+        ax[1].plot(*node_coor[source], 'p', color = truck_colors[truck_idx],
+                 mec='k', ms=ms, alpha =0.6)
+        ax[1].plot(*node_coor[dest], 's', color = truck_colors[truck_idx],
+                 mec='k', ms=ms, alpha =0.6)
+        ax[1].text(*(np.array(node_coor[source]).T -5), f'{truck_key}', font='serif', size=10)
+        # ax[1].text(*(np.array(node_coor[dest]).T -5), f'{truck_key}', font='serif', size=10)
+        truck_idx +=1
+
+    for node_ in range(len(node_coor)):
+        if node_ not in truck_origin and node_ not in truck_dest:
+            ax[1].plot(*node_coor[node_], 'o', mfc='None', mew=mew,
+                 mec='k', ms=ms)
+    
+
+    legend_elements = [Line2D([0], [0],  marker='p', color='w', label='truck_origin',
+                          markerfacecolor='None', mec='k',  markersize=10),
+                        Line2D([0], [0],  marker='s', color='w', label='truck_dest',
+                                markerfacecolor='None', mec='k', markersize=10)]
+
+    ax[1].legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05),
+              fancybox=True, shadow=True, ncol=2, prop=font)
+
+    cargo_idx = 0
+    for cargo_key, cargo_value in cargo_list.items():
+        source, dest = int(cargo_value[-2]), int(cargo_value[-1])
+        ax[2].plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
+                 mec='k', ms=ms)
+        ax[2].plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
+                 mec='k', ms=ms)
+        ax[2].text(*(np.array(node_coor[source]).T -5), f'{cargo_key}', font='serif', size=10)
+        # ax[2].text(*(np.array(node_coor[dest]).T -5), f'{cargo_key}', font='serif', size=10)
+
+        cargo_idx+=1
+        
+    legend_elements_ = [Line2D([0], [0],  marker='^', color='w', label='parcel_origin',
+                          markerfacecolor='None', mec='k',  markersize=10),
+                       Line2D([0], [0],  marker='o', color='w', label='parcel_dest',
+                                markerfacecolor='None', mec='k', markersize=10)]
+
+    ax[2].legend(handles=legend_elements_, loc='upper center', bbox_to_anchor=(0.5, -0.05),
+              fancybox=True, shadow=True, ncol=2, prop=font)
+
+    for axes in ax:
+        axes.set_aspect('equal')
+        axes.axis('off')
+
+
+    rec = [plt.Rectangle(
+            # (lower-left corner), width, height
+            (0.02, 0.685), 0.97, 0.31, fill=False, color="k", lw=2, 
+            zorder=1000, transform=fig.transFigure, figure=fig)]
+
+    rec.append(plt.Rectangle(
+            # (lower-left corner), width, height
+            (0.02, 0.335), 0.97, 0.35, fill=False, color="k", lw=2, 
+            zorder=1000, transform=fig.transFigure, figure=fig))
+    rec.append(plt.Rectangle(
+            # (lower-left corner), width, height
+            (0.02, 0.00), 0.97, 0.335, fill=False, color="k", lw=2, 
+            zorder=1000, transform=fig.transFigure, figure=fig))
+    fig.patches.extend(rec)
+
+    title=['Toy Instance [Network]', 'Toy Instance [Trucks]', 'Toy Instance [Parcels]']
+
+    return fig, ax, title
+
 def main():
 
     truck_colors = ['b', 'r', 'g']
@@ -461,23 +630,28 @@ def main():
     
     ins = toy_example()
 
-    fig1, ax1 = plot_instance(dir_, None, cargo_colors, legend_font)
-    fig1.savefig(dir_+'/toy.png', dpi=150, transparent=True)
+    # fig1, ax1, title_1 = plot_instance_more_details(dir_, truck_colors, cargo_colors, legend_font)
+    # for i in range(len(ax1)):
+    #     ax1[i].set_title(title_1[i], size=18, font='serif')
+    # fig1.tight_layout()
+    # fig1.savefig(os.path.join(dir_, 'toy.png'), dpi=150)
 
-    print('=========== Construct IniSol')
-    toy_ini_sol(dir_, greedy_initialization = False, verbose = 0) 
+
+    # print('=========== Construct IniSol')
+    # toy_ini_sol(dir_, greedy_initialization = False, verbose = 1) 
 
 
-    fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
-    ax2.set_title(title_2, size=18, font='serif')
-    fig2.savefig(dir_+'/toy_initSol.png', dpi=150, transparent=True)
+    # fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
+    # ax2.set_title(title_2, size=18, font='serif')
+    # fig2.tight_layout()
+    # fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
 
-    pdpt_rasd(dir_)
+    # pdpt_rasd(dir_)
 
-    fig3, ax3, title_3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
-    ax3.set_title(title_3, size=18, font='serif')
+    # fig3, ax3, title_3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
+    # ax3.set_title(title_3, size=18, font='serif')
 
-    fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150, transparent=True)
+    # fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150)
 
 
 if __name__ ==  "__main__":

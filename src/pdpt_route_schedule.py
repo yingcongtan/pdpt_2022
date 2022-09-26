@@ -1410,7 +1410,7 @@ def cpo_sub(constant, selected_cargo,
     # This param is needed for running SP.solve() in linux environment:
     # execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer'
     SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Quiet',
-                          execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
+                          execfile='/opt/ibm/ILOG/CPLEX_Studio221/cpoptimizer/bin/x86-64_linux/cpoptimizer')
     
     feasibility_SP = SP_sol.get_solve_status()
     

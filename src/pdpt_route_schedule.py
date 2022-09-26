@@ -361,12 +361,7 @@ def gurobi_master_cycle(constant, selected_cargo,
         destination_cargo = selected_cargo[cargo_][4]
         for node_ in node_list:
             if node_ != origin_cargo and node_ != destination_cargo:
-                MP.addConstr(
-                    quicksum(z[(pred_node, node_, truck_, cargo_)] * 1
-                             for pred_node in node_list 
-                             if pred_node != node_
-                             for truck_ in created_truck_all.keys())
-                    ==
+                MP.addConstr(nodes
                     quicksum(z[(node_, succ_node, truck_, cargo_)] * 1
                              for succ_node in node_list 
                              if succ_node != node_

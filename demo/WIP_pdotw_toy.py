@@ -11,7 +11,7 @@ src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022'
 sys.path.insert(1, src_dir_)
 
 from src.util import generate_node_cargo_size_change, calculate_single_truck_deviation, ConsoleLogger
-from src.util import read_route_solution_PDPT, read_pickle
+from src.util import read_pickle
 from src.pdotw_mip import eval_pdotw_sol
 
 from pdpt_repair import best_insert
@@ -622,7 +622,12 @@ def plot_instance_more_details(dir_, truck_colors, cargo_colors, font):
     return fig, ax, title
 
 def main():
+    Path(dir_).mkdir(parents=True, exist_ok=True)
+    # Start logging all stdout and stderr to out/experiment1/experiment1.log
+    logfile = os.path.join(dir_,'toy_log.log')
+    ConsoleLogger.start(logfile, mode='w', time_format='[%m-%d %H:%M:%S]')
 
+    
     truck_colors = ['b', 'r', 'g']
     cargo_colors = ['#8c510a', '#bf812d', '#dfc27d', '#f6e8c3',
                     '#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e']
@@ -630,21 +635,21 @@ def main():
     
     ins = toy_example()
 
-    # fig1, ax1, title_1 = plot_instance_more_details(dir_, truck_colors, cargo_colors, legend_font)
-    # for i in range(len(ax1)):
-    #     ax1[i].set_title(title_1[i], size=18, font='serif')
-    # fig1.tight_layout()
-    # fig1.savefig(os.path.join(dir_, 'toy.png'), dpi=150)
+    fig1, ax1, title_1 = plot_instance_more_details(dir_, truck_colors, cargo_colors, legend_font)
+    for i in range(len(ax1)):
+        ax1[i].set_title(title_1[i], size=18, font='serif')
+    fig1.tight_layout()
+    fig1.savefig(os.path.join(dir_, 'toy.png'), dpi=150)
 
 
-    # print('=========== Construct IniSol')
-    # toy_ini_sol(dir_, greedy_initialization = False, verbose = 1) 
+    print('=========== Construct IniSol')
+    toy_ini_sol(dir_, greedy_initialization = False, verbose = 2) 
 
 
-    # fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
-    # ax2.set_title(title_2, size=18, font='serif')
-    # fig2.tight_layout()
-    # fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
+    fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
+    ax2.set_title(title_2, size=18, font='serif')
+    fig2.tight_layout()
+    fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
 
     # pdpt_rasd(dir_)
 

@@ -1,5 +1,5 @@
 from src.pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, capacity_checker_cluster
-from src.util import read_pickle, read_route_solution_PDPT, group_cycle_truck, manual_stop
+from src.util import read_pickle, group_cycle_truck, manual_stop
 import numpy as np
 import random, sys, time
 import pickle
@@ -376,7 +376,9 @@ def pdpt_route_schedule_decomposition(path_, ins, subroutes, verbose):
         for key, value in cargo_route:
             print(f'      {key}: {value}')
 
-    return (x_sol, s_sol, z_sol, y_sol, u_sol, D_sol), (g_sol, h_sol, D_sol), (truck_route, cargo_route), (truck_cost, travel_cost, transfer_cost)
+    return (x_sol, s_sol, z_sol, y_sol, u_sol, D_sol, Db_sol),\
+           (g_sol, h_sol, D_sol), (truck_route, cargo_route),\
+           (truck_cost, travel_cost, transfer_cost)
 
 
 def pdpt_rasd(dir_, verbose = 0):
@@ -397,11 +399,12 @@ def pdpt_rasd(dir_, verbose = 0):
     MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_, pdpt_ins, subroutes)
 
     res = {'MP': {'x_sol': MP_sol[0],
-                  'x_sol': MP_sol[1],
+                  'y_sol': MP_sol[1],
                   'z_sol': MP_sol[2],
                   'y_sol': MP_sol[3],
                   'u_sol': MP_sol[4],
                   'D_sol': MP_sol[5],
+                  'Db_sol': MP_sol[5],
                  },
             'SP':{'g_sol': SP_sol[0],
                   'h_sol': SP_sol[1],

@@ -11,7 +11,7 @@ src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022'
 sys.path.insert(1, src_dir_)
 
 from src.util import generate_node_cargo_size_change, calculate_single_truck_deviation, ConsoleLogger
-from src.util import read_route_solution_PDPT, read_pickle
+from src.util import read_pickle
 from src.pdotw_mip import eval_pdotw_sol
 
 from pdpt_repair import best_insert
@@ -296,7 +296,6 @@ def plot_instance(dir_, truck_colors, cargo_colors, font):
     node_coor = pdpt_ins['loc']
 
     fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
-    ax1.axis('off')
     
     cargo_idx = 0
     for cargo_key, cargo_value in cargo_list.items():
@@ -318,7 +317,8 @@ def plot_instance(dir_, truck_colors, cargo_colors, font):
 
 
     ax1.set_title('Toy Instance', size=18, font='serif')
-
+    ax1.axis('off')
+    ax1.set_aspect('equal')
     return fig1, ax1
 
 def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
@@ -348,8 +348,7 @@ def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
     title = f'Init. Sol. [{truck_cost}+{travel_cost}+0]'
 
     fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
-    ax1.axis('off')
-    
+
     # plot location of cargo origin and destination
     cargo_idx = 0
     for cargo_key, cargo_value in cargo_list.items():
@@ -417,7 +416,8 @@ def plot_init_Sol(dir_, truck_colors, cargo_colors, font):
             zorder=1000, transform=fig1.transFigure, figure=fig1)]
     fig1.patches.extend(rec)
 
-    
+    ax1.axis('off')
+    ax1.set_aspect('equal')
     return fig1, ax1, title
 
 def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
@@ -445,7 +445,6 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
     trucks_in_subroute = subroute_truck_route.keys()
     
     fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
-    ax1.axis('off')
     
     cargo_idx = 0
     for cargo_key, cargo_value in cargo_list.items():
@@ -497,6 +496,13 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
         # ax[1].text(*(np.array(node_coor[dest]).T -5), f'{truck_key}', font='serif', size=10)
         truck_idx +=1
 
+
+
+    rasd_sol_filename = dir_ + '/toyimprove.pkl'
+    truck_cost, travel_cost, transfer_cost = toy_eval_pdpt_sol(dir_, rasd_sol_filename)
+    title = f'Sol. 1 iter RASD [{truck_cost}+{travel_cost}+{transfer_cost}]'
+
+
     # add legend for parcel origin and destination
     legend_elements = [Line2D([0], [0],  marker='^', color='w', label='parcel_origin',
                           markerfacecolor='None', mec='k',  markersize=10),
@@ -512,24 +518,16 @@ def plot_rasd_sol(dir_, truck_colors, cargo_colors, font):
         legend_elements.append(Line2D([0], [0], color=truck_colors[i], 
                              lw=4, alpha=0.3+truck_idx*0.1, label=f'Truck {i+1}'))
 
-
-    rasd_sol_filename = dir_ + '/toyimprove.pkl'
-    truck_cost, travel_cost, transfer_cost = toy_eval_pdpt_sol(dir_, rasd_sol_filename)
-    title = f'Sol. 1 iter RASD [{truck_cost}+{travel_cost}+{transfer_cost}]'
-
-    legend_elements = [Line2D([0], [0],  marker='^', color='w', label='origin',
-                          markerfacecolor='None', mec='k',  markersize=10),
-                       Line2D([0], [0],  marker='o', color='w', label='destination',
-                          markerfacecolor='None', mec='k', markersize=10)]
-    
-    for i in range(len(truck_colors)):
-        legend_elements.append(Line2D([0], [0], color=truck_colors[i], 
-                             lw=4, alpha=0.3+truck_idx*0.1, label=f'Truck {i+1}'))
-
     ax1.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, -0.05),
-              fancybox=True, shadow=True, ncol=5, prop = font)
+              fancybox=True, shadow=True, ncol=4, prop = font)
 
-    
+    rec = [plt.Rectangle(
+            # (lower-left corner), width, height
+            (0.02, 0.02), 0.97, 0.97, fill=False, color="k", lw=2, 
+            zorder=1000, transform=fig1.transFigure, figure=fig1)]
+    fig1.patches.extend(rec)
+    ax1.axis('off')
+    ax1.set_aspect('equal')
     return fig1, ax1, title
 
 def plot_instance_more_details(dir_, truck_colors, cargo_colors, font):
@@ -623,12 +621,13 @@ def plot_instance_more_details(dir_, truck_colors, cargo_colors, font):
 
 def main():
 
+    Path(dir_).mkdir(parents=True, exist_ok=True)
     truck_colors = ['b', 'r', 'g']
     cargo_colors = ['#8c510a', '#bf812d', '#dfc27d', '#f6e8c3',
                     '#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e']
     legend_font = font_manager.FontProperties(family='serif',style='normal', size=12)
     
-    ins = toy_example()
+    # ins = toy_example()
 
     # fig1, ax1, title_1 = plot_instance_more_details(dir_, truck_colors, cargo_colors, legend_font)
     # for i in range(len(ax1)):
@@ -641,17 +640,17 @@ def main():
     # toy_ini_sol(dir_, greedy_initialization = False, verbose = 1) 
 
 
-    # fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
-    # ax2.set_title(title_2, size=18, font='serif')
-    # fig2.tight_layout()
-    # fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
+    fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
+    ax2.set_title(title_2, size=18, font='serif')
+    fig2.tight_layout()
+    fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
 
-    # pdpt_rasd(dir_)
+    pdpt_rasd(dir_)
 
-    # fig3, ax3, title_3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
-    # ax3.set_title(title_3, size=18, font='serif')
-
-    # fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150)
+    fig3, ax3, title_3 = plot_rasd_sol(dir_, truck_colors, cargo_colors, legend_font)
+    ax3.set_title(title_3, size=18, font='serif')
+    fig3.tight_layout()
+    fig3.savefig(dir_+'/toy_rasdSol.png', dpi=150)
 
 
 if __name__ ==  "__main__":

@@ -1,4 +1,4 @@
-from src.util import read_pickle, read_route_solution_PDPT
+from src.util import read_pickle
 from src.pdotw_mip import eval_pdotw_sol
 import pickle
 import numpy as np

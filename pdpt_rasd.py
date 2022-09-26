@@ -1,5 +1,5 @@
 from src.pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, capacity_checker_cluster
-from src.util import read_pickle, read_route_solution_PDPT, group_cycle_truck, manual_stop
+from src.util import read_pickle, group_cycle_truck, manual_stop
 import numpy as np
 import random, sys, time
 import pickle

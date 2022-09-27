@@ -1736,3 +1736,114 @@ def calculate_SP_cost(constant, selected_cargo, selected_edge,
 
 
     
+def postprocess_pdpt_solution(subroutes, x_sol, s_sol, y_sol, z_sol, u_sol, verbose = 0):
+
+    selected_cargo, selected_truck, selected_node, selected_edge = subroutes
+
+    #x_sol: x^k_{ij}, if truck k visit edge (i,j) or not
+    #s_sol: s^k, if truck k i used or not
+    #z_sol: z^{kr}_{ij}, if truck k carries parcel r visit edge (i, j) or not
+    #y_sol: y^k_r, if parcel r is carried by truck k
+    #u_sol: y^r_i, if parcel r is transfered at node i
+    #D_sol: D^k_i, depature time of truck k at node i
+    
+    truck_used = []         # list of trucks used in the solution
+    
+    # dictionary, for each truck_key, there is a list of cargo carried that was on this truck. E.g., {'T1": ['C1', 'C2', ...]}
+    cargo_in_truck = {}   
+    for truck_key in selected_truck.keys():
+        cargo_in_truck[truck_key] = []
+
+    # dictionary, for each cargo_key, there is a list of truck that carried this cargo. E.g., {'C1": ['T1', 'T2', ...]}
+    trucks_per_cargo = {} 
+    for cargo_key in selected_cargo.keys():
+        trucks_per_cargo[cargo_key] = []
+
+    cargo_delivered = []   # list of delivered cargo
+    cargo_undelivered = [] # list of undelivered cargo
+
+
+    truck_route = {}
+    for truck_key in selected_truck.keys():
+        truck_route[truck_key] = []
+    cargo_route = {}
+    for cargo_key in selected_cargo.keys():
+        cargo_route[cargo_key] = []
+
+
+    # postprocess cargo_in_truck and truck_used
+    for truck_key in selected_truck:
+        cargo_in_truck[truck_key] = []
+        truck_used_flag = 0
+        # Generate cargo_in_truck
+        for cargo_key in selected_cargo.keys():
+            if y_sol[(truck_key, cargo_key)] == 1:
+                if verbose > 0: 
+                    print('    The cargo {} has been carried by truck {}'.format(cargo_key, truck_key))
+                truck_used_flag += 1
+                cargo_in_truck[truck_key].append(cargo_key)
+        if truck_used_flag > 0:
+            
+            # put the truck_key into used trucks
+            truck_used.append(truck_key)
+
+    # postprocess truck_route
+    for truck_key in selected_truck:
+        if s_sol[truck_key] == 1:
+            source = selected_truck[truck_key][0] # starting from the origin node of each truck
+            for node_ in selected_node:
+                if node_ != source and x_sol[(source, node_, truck_key)] == 1: # find node_ such that x[source, node_, truck_key] == 1
+
+                    if len(truck_route[truck_key]) == 0: # append source as the first node
+                            truck_route[truck_key].append(source)
+                    truck_route[truck_key].append(node_)
+                    source = node_
+                    break
+            while source != selected_truck[truck_key][1]: # terminate when reach the arival node of each truck
+                for node_ in selected_node:
+                    if node_ != source and x_sol[(source, node_, truck_key)] == 1: # find node_ such that x[source, node_, truck_key] == 1
+                        truck_route[truck_key].append(node_)
+                        source = node_
+                        break
+        else:
+            truck_route[truck_key] = []
+
+    # RECALL, cargo is a dictionary with the following format:
+    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
+
+    for cargo_key, cargo_value in selected_cargo.items():
+        dest = cargo_value[-1]
+        if sum([z_sol[(node_, dest, truck_key, cargo_key)] for node_ in selected_node for truck_key in selected_truck.keys() if node_!= dest]) == 1:
+            truck_list = [truck_key for truck_key in selected_truck.keys()  # list of truck_key
+                                        if y_sol[(truck_key, cargo_key)]  == 1  ]# if cargo_key is carried by truck_key i.e., y^k_r == 1
+            n_curr = cargo_value[3]
+            for n_next in selected_node:
+                for truck_key in truck_list:
+                    if n_next!=n_curr and z_sol[(n_curr, n_next, truck_key, cargo_key)] == 1:
+                        if len(cargo_route[cargo_key]) == 0: # append source as the first node
+                            cargo_route[cargo_key].append((truck_key, n_curr))
+                        cargo_route[cargo_key].append((truck_key, n_next))
+                        n_curr = n_next
+                        break
+                else:
+                    continue
+                break
+            while n_curr != cargo_value[-1]:
+                for n_next in selected_node:
+                    for truck_key in truck_list:
+                        if n_next!=n_curr and z_sol[(n_curr, n_next, truck_key, cargo_key)] == 1:
+                            cargo_route[cargo_key].append((truck_key, n_next))
+                            n_curr = n_next
+                            break
+                    else:
+                        continue
+                    break
+
+    trucks_per_cargo = {cargo_key: [truck_key  for truck_key in selected_truck.keys() if y_sol[(truck_key, cargo_key)]==1 ] for cargo_key, cargo_value in selected_cargo.items()}
+
+
+
+
+
+    return truck_used, cargo_delivered, cargo_undelivered, \
+           trucks_per_cargo, cargo_in_truck, truck_route, cargo_route 

@@ -4,14 +4,20 @@ import pickle
 import threading
 import datetime
 import networkx as nx
+import math
+import numpy as np
 
 def manual_stop():
     abc = 2
     assert abc == 1
 # DATA_DIR = '/home/tan/Documents/PDPT_src/data'
 
-def print_dict(dict):
-    return  "\n".join("\t{}\t{}".format(k, v) for k, v in dict.items())
+def print_dict(dict, return_string=False):
+    if return_string == True:
+        return  "\n".join("\t{}\t{}".format(k, v) for k, v in dict.items())
+    if return_string == False:
+        for key, value in dict.items():
+            print(f'{key}: {value}')
 
 
 ###################################################
@@ -142,6 +148,64 @@ def generate_node_cargo_size_change(node_list, cargo):
                 node_cargo_size_change[(n, c)] = 0
     
     return node_cargo_size_change
+
+def read_coordinates_FastMap(coordinate_filename, node_list, verbose = 0):
+    """
+    Read coordinates obtained from FastMap
+    Output:
+        coordinates[N1] = (x, y)
+    """
+    
+    # generate the file name
+    filename = coordinate_filename 
+    f = open(filename, 'r')
+    
+    coordinates = {}
+    for i in range(len(node_list)):
+        param = f.readline()
+        list_param = param.split()
+        coordinates[list_param[0]] = \
+        (float(list_param[1]), float(list_param[2]))
+        
+    assert len(coordinates) == len(node_list)
+    
+    f.close()
+    
+    if verbose >0:
+        print('\nThe coordinates obtained from FastMap:')
+        for key, value in coordinates.items():
+            print(key, value[0], value[1])
+    
+    return coordinates
+
+def read_coordinates_nx(coordinate_filename, node_list, verbose = 0):
+    """
+    Read coordinates obtained from networkX
+    Output:
+        coordinates[N1] = (x, y)
+    """
+    
+    # generate the file name
+    filename = coordinate_filename #'coordinates_nx.txt'
+    f = open(filename, 'r')
+    
+    coordinates = {}
+    for i in range(len(node_list)):
+        param = f.readline()
+        list_param = param.split()
+        coordinates[list_param[0]] = \
+        (float(list_param[1]), float(list_param[2]))
+        
+    assert len(coordinates) == len(node_list)
+    
+    f.close()
+    if verbose > 0:
+        print('\nThe coordinates obtained from networkX:')
+        for key, value in coordinates.items():
+            print(key, value[0], value[1])
+    
+    return coordinates
+
 
 ###################################################
 
@@ -483,14 +547,14 @@ def read_pdpt_csv_to_pickle(case_num, dir, verbose = 0):
 
     def read_pdpt_csv(path, verbose = 0):
         ins = PDPT_INS(path)
-        ins.read_raw_data()
-        if verbose > 0:
-            print(f'+++ Constant:\n{print_dict(ins.constant)}')
-            print(f'+++ Cargo:\n{print_dict(ins.cargo)}')
-            print(f'+++ Truck:\n{print_dict(ins.truck)}')
+        ins.read_raw_data()          
+        if verbose > 1:
+            print(f'+++ Constant:\n{print_dict(ins.constant, return_string=True)}')
+            print(f'+++ Cargo:\n{print_dict(ins.cargo, return_string=True)}')
+            print(f'+++ Truck:\n{print_dict(ins.truck, return_string=True)}')
             print(f'+++ Nodes:\n{ins.nodes}')
-            print(f'+++ Edges:\n{print_dict(ins.edges)}')
-            print(f'+++ node_cargo_size_change:\n{print_dict(ins.node_cargo_size_change)}')
+            print(f'+++ Edges:\n{print_dict(ins.edges, return_string=True)}')
+            print(f'+++ node_cargo_size_change:\n{print_dict(ins.node_cargo_size_change, return_string=True)}')
 
         return ins
     
@@ -499,6 +563,10 @@ def read_pdpt_csv_to_pickle(case_num, dir, verbose = 0):
     pdpt_ins = read_pdpt_csv(path, verbose)
     edge_shortest, path_shortest = replace_edge_by_shortest_length_nx(pdpt_ins.nodes, pdpt_ins.edges)
     single_truck_deviation = calculate_single_truck_deviation(pdpt_ins.truck, pdpt_ins.cargo, edge_shortest)
+
+    node_list = pdpt_ins.nodes
+    coordinate_filename = os.path.join(dir, f'raw/case{case_num}', 'coordinates_FastMap.txt')
+    coor = read_coordinates_FastMap(coordinate_filename, node_list)
 
     truck_yCycle = {}
     truck_nCycle = {}
@@ -515,6 +583,10 @@ def read_pdpt_csv_to_pickle(case_num, dir, verbose = 0):
             (truck_value[0], truck_value[1], truck_value[2], truck_value[3])
 
 
+    if verbose > 0:
+        print(f'+++ Case_{case_num} with [{len(pdpt_ins.truck)}] truck, [{len(pdpt_ins.cargo)}] cargos and [{len(pdpt_ins.nodes)}] nodes')
+
+
     dict_ = {'constant': pdpt_ins.constant,
              'cargo': pdpt_ins.cargo,
              'truck': pdpt_ins.truck,
@@ -526,6 +598,7 @@ def read_pdpt_csv_to_pickle(case_num, dir, verbose = 0):
              'single_truck_deviation': single_truck_deviation,
              'truck_yCycle': truck_yCycle,
              'truck_nCycle': truck_nCycle,
+             'coordinate': coor,
             }
     path_ = dir+'/case' + str(case_num) +'.pkl'
     with open(path_, 'wb') as pickle_file:
@@ -545,6 +618,7 @@ def read_pickle(filename, verbose = 0):
                 print(f'+++ {key}:\n{value}')
 
     return ins
+
 ###################################################
 
 
@@ -644,132 +718,3 @@ class ConsoleLogger:
 
 
 ################ functions related to solution plotting
-def plot_instance(dir_, truck_colors, cargo_colors):
-
-    iniSol_filename = dir_ + '/toyinitSol.txt'
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
-
-    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
-    cargo_list = pdpt_ins['cargo']
-    node_coor = pdpt_ins['loc']
-
-    fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
-#     ax1.plot(*np.array(node_coor).T, 'o',ms =10, mfc='None', mec='k', mew=2)
-    ax1.axis('off')
-    
-    cargo_idx = 0
-    for cargo_key, cargo_value in cargo_list.items():
-        source, dest = int(cargo_value[-2]), int(cargo_value[-1])
-        ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
-#                  mec=cargo_colors[cargo_idx], 
-                 mec='k', ms=10)
-        ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
-#                  mec=cargo_colors[cargo_idx], 
-                 mec='k', ms=10)
-
-        cargo_idx+=1
-
-    return fig1, ax1
-
-def plot_init_sol(dir_, truck_colors, cargo_colors):
-
-    iniSol_filename = dir_ + '/toyinitSol.txt'
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
-
-    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
-    cargo_list = pdpt_ins['cargo']
-    node_coor = pdpt_ins['loc']
-
-    fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
-#     ax1.plot(*np.array(node_coor).T, 'o',ms =10, mfc='None', mec='k', mew=2)
-    ax1.axis('off')
-    
-    cargo_idx = 0
-    for cargo_key, cargo_value in cargo_list.items():
-        source, dest = int(cargo_value[-2]), int(cargo_value[-1])
-        ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
-#                  mec=cargo_colors[cargo_idx], 
-                 mec='k', ms=10)
-        ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
-#                  mec=cargo_colors[cargo_idx], 
-                 mec='k', ms=10)
-
-        cargo_idx+=1
-
-    truck_idx = 0
-    for truck_key, route_ in truck_route_file.items():
-        for i in range(len(route_)-1):
-            node_curr, node_next = int(route_[i]), int(route_[i+1])
-            x0, y0 = node_coor[node_curr]
-            dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
-            ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
-                      length_includes_head = True, linewidth=2, linestyle=':',
-                      alpha=0.3+truck_idx*0.1)
-        truck_idx += 1
-        
-    return fig1, ax1
-
-def plot_rasd_sol(dir_, truck_colors, cargo_colors):
-
-    iniSol_filename = dir_ + '/toyinitSol.txt'
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
-    pdpt_ins = read_pdpt_pickle(dir_ +'/toy.pkl', verbose = 0) 
-
-    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
-    cargo_list = pdpt_ins['cargo']
-    node_coor = pdpt_ins['loc']
-
-    
-    filename = dir_ + '/toyimprove.pkl'
-    with open(filename, 'rb') as pickle_file:
-        rasd_sol=pickle.load(pickle_file)
-    
-    subroute_truck_route = rasd_sol['route']['truck_route']
-    trucks_in_subroute = subroute_truck_route.keys()
-    
-    fig1, ax1 = plt.subplots(1,1, figsize=(10,5))
-#     ax1.plot(*np.array(node_coor).T, 'o',ms =10, mfc='None', mec='k', mew=2)
-    ax1.axis('off')
-    
-    cargo_idx = 0
-    for cargo_key, cargo_value in cargo_list.items():
-        source, dest = int(cargo_value[-2]), int(cargo_value[-1])
-        ax1.plot(*node_coor[source], 'o', color = cargo_colors[cargo_idx],
-#                  mec=cargo_colors[cargo_idx], 
-                 mec='k', ms=10)
-        ax1.plot(*node_coor[dest], '^', color = cargo_colors[cargo_idx],
-#                  mec=cargo_colors[cargo_idx], 
-                 mec='k', ms=10)
-
-        cargo_idx+=1
-
-    truck_idx = 0
-    for truck_key, route_ in truck_route_file.items():
-        if truck_key not in trucks_in_subroute:
-            for i in range(len(route_)-1):
-                node_curr, node_next = int(route_[i]), int(route_[i+1])
-                x0, y0 = node_coor[node_curr]
-                dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
-                ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
-                          length_includes_head = True, linewidth=2, linestyle=':',
-                          alpha=0.3+truck_idx*0.1)
-            truck_idx += 1
-            
-    for truck_key, route_ in subroute_truck_route.items():
-        for i in range(len(route_)-1):
-            node_curr, node_next = int(route_[i]), int(route_[i+1])
-            x0, y0 = node_coor[node_curr]
-            dx, dy = (np.array(node_coor[node_next])-np.array(node_coor[node_curr]))
-            ax1.arrow(x0, y0, dx, dy, color=truck_colors[truck_idx], head_width=.08,
-                      length_includes_head = True, linewidth=2, linestyle=':',
-                      alpha=0.3+truck_idx*0.1)
-        truck_idx += 1
-    return fig1, ax1

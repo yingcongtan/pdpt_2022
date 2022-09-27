@@ -1,5 +1,8 @@
 from gurobipy import Model, quicksum, GRB
 import numpy as np
+from pdpt_route_schedule import MP_to_SP, cpo_sub, calculate_SP_cost, postprocess_pdpt_solution
+import os
+from util import read_pickle, group_cycle_truck
 
 def eval_pdotw_sol(constant, edge_shortest,
     truck_used_file, truck_route_file, verbose = 0):
@@ -814,8 +817,7 @@ def pdotw_mip_gurobi(constant,
     # if infeasible
     if MP.Status == 3:
         if verbose >0: print('+++ MIP [Infeasible Proved] ')
-        return -1, runtime, [], [], [], [], [], [], [], [], [], \
-               [], [], [], [], -1, -1, -1, -1, -1, -1, -1, -1
+        return -1, runtime, [], [], [], [], [], [], [], [], [], -1, -1, -1, -1
     
     runtime_MP = MP.Runtime
     obj_val_MP = MP.objVal
@@ -824,8 +826,7 @@ def pdotw_mip_gurobi(constant,
     # if no objective value
     if float('inf') == obj_val_MP:
         if verbose >0: print('+++ MIP [Infeasible] ')
-        return -1, runtime, [], [], [], [], [], [], [], [], [], \
-               [], [], [], [], -1, -1, -1, -1, -1, -1, -1, -1
+        return -1, runtime, [], [], [], [], [], [], [], [], [], -1, -1, -1, -1
         
     
     if verbose > 0:
@@ -953,7 +954,7 @@ def pdotw_mip_gurobi(constant,
     
          
     del MP
-    
+
     
     return obj_val_MP, runtime_MP, \
            x_sol, {}, y_sol, S_sol, D_sol, A_sol, \
@@ -961,3 +962,147 @@ def pdotw_mip_gurobi(constant,
            cost_cargo_size_value, cost_cargo_number_value, \
            cost_travel_value, cost_deviation_value
 
+
+def convert_pdotw_sol_to_pdpt_sol(dir_, pdpt_ins_filename, ini_sol_res_filename): 
+
+
+    # pdpt_ins_filename = os.path.join(dir_, 'toy.pkl')
+    pdpt_ins = read_pickle(pdpt_ins_filename)
+
+    edge_shortest = pdpt_ins['edge_shortest']
+    truck_list = pdpt_ins['truck']
+    cargo_list = pdpt_ins['cargo']
+    node_list = pdpt_ins['nodes']
+    constant = pdpt_ins['constant']
+
+    # ini_sol_res_filename = os.path.join(dir_, 'toy_initSol.pkl')
+    pdotw_sol = read_pickle(ini_sol_res_filename)
+
+    # Index k for truck is pre-defined
+    # x[(i, j, truck_)]
+    #   x_sol: x^k_{ij}, if truck k visit edge (i,j) or not
+    # y[(truck_, cargo_)]
+    #   y_sol: y^k_r, if parcel r is carried by truck k
+    # S[(node_, truck_)]
+    #   s_sol: x^k_i, total size of cargos on truck k at node i
+    #D_sol: D^k_i, depature time of truck k at node i
+    #A_sol: A^k_i, arrival time of truck k at node i
+    x_sol = pdotw_sol['MIP']['x_sol']
+    y_sol = pdotw_sol['MIP']['y_sol']
+    S_sol = pdotw_sol['MIP']['S_sol']
+    D_sol = pdotw_sol['MIP']['D_sol']
+    Db_sol = pdotw_sol['MIP']['Db_sol']
+
+    # x[(i, j, truck_)], same from PDOTW
+        # x_sol: x^k_{ij}, if truck k visit edge (i,j) or not
+    # y[(truck_, cargo_)], same from PDOTW
+        # y_sol: y^k_r, if parcel r is carried by truck k
+    # s[truck_], 
+    # = 1 if exist, n1, n2, truck_, cargo, s.t. x[(n1,n2,truck_)] ==1 and y[(trcuk_, cargo_)] == 1 
+        # s_sol: s^k, if truck k i used or not
+    # z[(edge_[0], edge_[1], truck_, cargo_)]
+    # = 1 if exist, n1, n2, truck_, cargo, s.t. x[(n1,n2,truck_)] ==1 and y[(trcuk_, cargo_)] == 1 
+        #z_sol: z^{kr}_{ij}, if truck k carries parcel r visit edge (i, j) or not
+    # u[(node_, cargo_)]
+        #u_sol: y^r_i, if parcel r is transfered at node i
+    # D[(node_, truck_)], same from PDOTW
+        # D_sol: D^k_i, depature time of truck k at node i
+        # D_sol for destinations of cycle trucks 
+    z_sol = {}
+    u_sol = {}
+
+    for edge in edge_shortest.keys():
+        for truck_key in truck_list.keys():
+            for cargo_key in cargo_list.keys():
+                if (edge[0], edge[1], truck_key) in x_sol.keys():
+                    if (truck_key, cargo_key) in y_sol.keys():
+                        if x_sol[(edge[0], edge[1], truck_key)] == 1 and y_sol[(truck_key, cargo_key)] == 1:
+                            z_sol[(edge[0], edge[1], truck_key, cargo_key)] = 1
+
+                        else:
+                            z_sol[(edge[0], edge[1], truck_key, cargo_key)] = 0
+                    else:
+                        y_sol[(truck_key, cargo_key)] = 0
+                        z_sol[(edge[0], edge[1], truck_key, cargo_key)] = 0
+                else:
+                    x_sol[(edge[0], edge[1], truck_key)] = 0
+                    z_sol[(edge[0], edge[1], truck_key, cargo_key)] = 0
+
+    k_ = 'T1' 
+    c_ ='C1'
+    print(f'x_sol[(0,1,T1)] = {x_sol[(0, 1, k_)]}')
+    print(f'y_sol[({k_}, {c_})] = {y_sol[(k_, c_)]}')
+    print([y_sol[(truck_key, 'C1')] for truck_key in truck_list])
+
+    for edge in edge_shortest:
+        print(f'z_sol[({edge[0]}, {edge[1]}, T1, C1)] = {z_sol[(edge[0], edge[1], k_, c_)]}')
+
+
+    for node_ in node_list:
+        for cargo_key in cargo_list.keys():
+            u_sol[(node_, cargo_key)] = 0
+
+    s_sol = {key: 1 if sum([y_sol[key, c_key] for c_key in cargo_list.keys()]) >0 else 0 for key in truck_list.keys()}
+
+    runtime = 100
+
+    selected_cargo = cargo_list.copy()
+    selected_edge = edge_shortest.copy()
+    selected_node = node_list.copy()
+    selected_truck = truck_list.copy()
+    created_truck_yCycle, created_truck_nCycle, created_truck_all = \
+    group_cycle_truck(truck_list)
+    truck_MP, truck_nodes, truck_nodes_index, cargo_in, cargo_out, \
+    transfer_nodes, cargo_unload, cargo_load = \
+    MP_to_SP(constant, selected_cargo, 
+        created_truck_yCycle, created_truck_nCycle, created_truck_all, 
+        selected_edge, selected_node,
+        x_sol, s_sol, z_sol, y_sol, u_sol, D_sol)  
+    
+    # Evaluating the feasibility of SP
+    feasibility_SP, g_sol, h_sol, D_sol = \
+    cpo_sub(constant, selected_cargo, 
+        created_truck_yCycle, created_truck_nCycle, created_truck_all, 
+        selected_edge, selected_node,
+        truck_MP, truck_nodes, truck_nodes_index, 
+        cargo_in, cargo_out,
+        transfer_nodes, cargo_unload, cargo_load,
+        runtime)
+    if feasibility_SP != 'Feasible':
+        assert feasibility_SP == 'Feasible'
+
+    truck_cost, travel_cost, transfer_cost = \
+    calculate_SP_cost(constant, selected_cargo, selected_edge, 
+        truck_MP, truck_nodes, 
+        cargo_in, cargo_out, transfer_nodes)
+
+    subroutes = (selected_cargo, selected_truck, selected_node, selected_edge)
+
+    truck_used, cargo_delivered, cargo_undelivered, \
+    trucks_per_cargo, cargo_in_truck, truck_route, cargo_route = \
+    postprocess_pdpt_solution(subroutes, x_sol, s_sol, y_sol, z_sol, u_sol, verbose = 0)
+
+
+
+    res = {'MP': {'x_sol': x_sol,
+                  's_sol': s_sol,
+                  'z_sol': z_sol,
+                  'y_sol': y_sol,
+                  'u_sol': u_sol,
+                  'D_sol': D_sol,
+                  'Db_sol': Db_sol,
+                 },
+            'SP':{'g_sol': g_sol,
+                  'h_sol': h_sol,
+                  'D_sol': D_sol,
+                 },
+            'route':{'truck_route': truck_route,
+                     'cargo_route': cargo_route,
+                    },
+            'cost':{'truck_cost': truck_cost,
+                    'travel_cost': travel_cost,
+                    'transfer_cost': transfer_cost,
+                    }
+            }
+
+    return res

@@ -1,4 +1,6 @@
-from src.pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, capacity_checker_cluster
+import os
+
+from src.pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, postprocess_pdpt_solution
 from src.util import read_pickle, group_cycle_truck, manual_stop
 import numpy as np
 import random, sys, time
@@ -7,13 +9,14 @@ import pickle
 def find_key(list_dict, value):
     return  [k for item_ in list_dict for k, v in item_.items() if value in v]
 
-def initialization_rasd(ins, greedy_sorting_truck = False, seed=0, verbose = 0):
+def initialization_rasd(ins, truck_used, greedy_sorting_truck = False, seed=0, verbose = 0):
     cargo = ins['cargo']
     truck = ins['truck']
 
     selected_truck = {}
     for t_key, t_value in truck.items():
-        selected_truck[t_key] = t_value
+        if t_key in truck_used:
+            selected_truck[t_key] = t_value
     selected_cargo = {}
     for c_key, c_value in cargo.items():
         selected_cargo[c_key] = c_value
@@ -38,9 +41,9 @@ def initialization_rasd(ins, greedy_sorting_truck = False, seed=0, verbose = 0):
     return truck_keys_shuffle, selected_truck, selected_cargo    
 
 
-def select_subroutes(ins, cargo_route_file, verbose):
+def select_subroutes(ins, cargo_route_file, truck_used, verbose):
 
-    truck_keys_shuffle, selected_truck, selected_cargo = initialization_rasd(ins, False, verbose)
+    truck_keys_shuffle, selected_truck, selected_cargo = initialization_rasd(ins, truck_used, False, verbose)
 
     # load data from ins
     truck = ins['truck']
@@ -99,118 +102,6 @@ def select_subroutes(ins, cargo_route_file, verbose):
 
 
     return selected_cargo, selected_truck, selected_node, selected_edge
-
-def postprocess_pdpt_solution(subroutes, x_sol, s_sol, y_sol, z_sol, u_sol, verbose = 0):
-
-    selected_cargo, selected_truck, selected_node, selected_edge = subroutes
-
-    #x_sol: x^k_{ij}, if truck k visit edge (i,j) or not
-    #s_sol: s^k, if truck k i used or not
-    #z_sol: z^{kr}_{ij}, if truck k carries parcel r visit edge (i, j) or not
-    #y_sol: y^k_r, if parcel r is carried by truck k
-    #u_sol: y^r_i, if parcel r is transfered at node i
-    #D_sol: D^k_i, depature time of truck k at node i
-    
-    truck_used = []         # list of trucks used in the solution
-    
-    # dictionary, for each truck_key, there is a list of cargo carried that was on this truck. E.g., {'T1": ['C1', 'C2', ...]}
-    cargo_in_truck = {}   
-    for truck_key in selected_truck.keys():
-        cargo_in_truck[truck_key] = []
-
-    # dictionary, for each cargo_key, there is a list of truck that carried this cargo. E.g., {'C1": ['T1', 'T2', ...]}
-    trucks_per_cargo = {} 
-    for cargo_key in selected_cargo.keys():
-        trucks_per_cargo[cargo_key] = []
-
-    cargo_delivered = []   # list of delivered cargo
-    cargo_undelivered = [] # list of undelivered cargo
-
-
-    truck_route = {}
-    for truck_key in selected_truck.keys():
-        truck_route[truck_key] = []
-    cargo_route = {}
-    for cargo_key in selected_cargo.keys():
-        cargo_route[cargo_key] = []
-
-
-    # postprocess cargo_in_truck and truck_used
-    for truck_key in selected_truck:
-        cargo_in_truck[truck_key] = []
-        truck_used_flag = 0
-        # Generate cargo_in_truck
-        for cargo_key in selected_cargo.keys():
-            if y_sol[(truck_key, cargo_key)] == 1:
-                if verbose > 0: 
-                    print('    The cargo {} has been carried by truck {}'.format(cargo_key, truck_key))
-                truck_used_flag += 1
-                cargo_in_truck[truck_key].append(cargo_key)
-        if truck_used_flag > 0:
-            
-            # put the truck_key into used trucks
-            truck_used.append(truck_key)
-
-    # postprocess truck_route
-    for truck_key in selected_truck:
-        if s_sol[truck_key] == 1:
-            source = selected_truck[truck_key][0] # starting from the origin node of each truck
-            for node_ in selected_node:
-                if node_ != source and x_sol[(source, node_, truck_key)] == 1: # find node_ such that x[source, node_, truck_key] == 1
-
-                    if len(truck_route[truck_key]) == 0: # append source as the first node
-                            truck_route[truck_key].append(source)
-                    truck_route[truck_key].append(node_)
-                    source = node_
-                    break
-            while source != selected_truck[truck_key][1]: # terminate when reach the arival node of each truck
-                for node_ in selected_node:
-                    if node_ != source and x_sol[(source, node_, truck_key)] == 1: # find node_ such that x[source, node_, truck_key] == 1
-                        truck_route[truck_key].append(node_)
-                        source = node_
-                        break
-        else:
-            truck_route[truck_key] = []
-
-    # RECALL, cargo is a dictionary with the following format:
-    # cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time', 'departure_node', 'arrival_node']
-
-    for cargo_key, cargo_value in selected_cargo.items():
-        dest = cargo_value[-1]
-        if sum([z_sol[(node_, dest, truck_key, cargo_key)] for node_ in selected_node for truck_key in selected_truck.keys() if node_!= dest]) == 1:
-            truck_list = [truck_key for truck_key in selected_truck.keys()  # list of truck_key
-                                        if y_sol[(truck_key, cargo_key)]  == 1  ]# if cargo_key is carried by truck_key i.e., y^k_r == 1
-            n_curr = cargo_value[3]
-            for n_next in selected_node:
-                for truck_key in truck_list:
-                    if n_next!=n_curr and z_sol[(n_curr, n_next, truck_key, cargo_key)] == 1:
-                        if len(cargo_route[cargo_key]) == 0: # append source as the first node
-                            cargo_route[cargo_key].append((truck_key, n_curr))
-                        cargo_route[cargo_key].append((truck_key, n_next))
-                        n_curr = n_next
-                        break
-                else:
-                    continue
-                break
-            while n_curr != cargo_value[-1]:
-                for n_next in selected_node:
-                    for truck_key in truck_list:
-                        if n_next!=n_curr and z_sol[(n_curr, n_next, truck_key, cargo_key)] == 1:
-                            cargo_route[cargo_key].append((truck_key, n_next))
-                            n_curr = n_next
-                            break
-                    else:
-                        continue
-                    break
-
-    trucks_per_cargo = {cargo_key: [truck_key  for truck_key in selected_truck.keys() if y_sol[(truck_key, cargo_key)]==1 ] for cargo_key, cargo_value in selected_cargo.items()}
-
-
-
-
-
-    return truck_used, cargo_delivered, cargo_undelivered, \
-           trucks_per_cargo, cargo_in_truck, truck_route, cargo_route 
            
 def pdpt_route_schedule_decomposition(path_, ins, subroutes, verbose):
     """
@@ -275,6 +166,7 @@ def pdpt_route_schedule_decomposition(path_, ins, subroutes, verbose):
     #D_sol: D^k_i, depature time of truck k at node i
 
     gurobi_log_file = path_ + f'_gurobi/rasd_MP.log'
+    print(gurobi_log_file)
 
     obj_val_MP, runtime_MP, \
     x_sol, s_sol, z_sol, y_sol, u_sol, D_sol, Db_sol, \
@@ -283,9 +175,9 @@ def pdpt_route_schedule_decomposition(path_, ins, subroutes, verbose):
         created_truck_yCycle, created_truck_nCycle, created_truck_all, 
         selected_edge, selected_node, runtime*1, gurobi_log_file, verbose)
 
-    gurobi_log_file_ = path_ + f'_gurobi/rasd_MP_repair.log'
-
     if obj_val_MP < 0:
+        gurobi_log_file_ = path_ + f'_gurobi/rasd_MP_repair.log'
+
         print(f'MP infeasible, apply greedy heuristics to fix MP')
         infeasible_clusters.append([selected_truck.keys()])
         selected_cargo, created_truck_all, selected_edge, selected_node, \
@@ -414,50 +306,25 @@ def pdpt_route_schedule_decomposition(path_, ins, subroutes, verbose):
     #        (truck_cost, travel_cost, transfer_cost)
 
 
-def pdpt_rasd(dir_, verbose = 0):
 
-    iniSol_filename = dir_ + '/toyinitSol.txt'
-    pdpt_ins = read_pickle(dir_ +'/toy.pkl', verbose = verbose-1) 
+def pdpt_rasd(dir_, case_num, verbose = 0):
 
-    truck_yCycle_file, truck_used_file, truck_route_file, \
-    cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-    Sb_sol_file, Ab_sol_file, Db_sol_file = read_route_solution_PDPT(iniSol_filename, verbose = 0)
+    pdpt_ins_filename = os.path.join(dir_, f'data/case{case_num}.pkl')
+    pdpt_ini_sol_res_filename = os.path.join(dir_, f'out/case{case_num}_initSol.pkl')
 
-    initial_solution = (truck_yCycle_file, truck_used_file, truck_route_file, \
-                        cargo_route_file, S_sol_file, A_sol_file, D_sol_file, \
-                        Sb_sol_file, Ab_sol_file, Db_sol_file)
-
-    subroutes = select_subroutes(pdpt_ins, cargo_route_file, verbose)
-
-    MP_sol, SP_sol, route_sol, costs = pdpt_route_schedule_decomposition(dir_, pdpt_ins, subroutes, 1)
-
-    res = {'MP': {'x_sol': MP_sol[0],
-                  'y_sol': MP_sol[1],
-                  'z_sol': MP_sol[2],
-                  'y_sol': MP_sol[3],
-                  'u_sol': MP_sol[4],
-                  'D_sol': MP_sol[5],
-                  'Db_sol': MP_sol[5],
-                 },
-            'SP':{'g_sol': SP_sol[0],
-                  'h_sol': SP_sol[1],
-                  'D_sol': SP_sol[-1],
-                 },
-            'route':{'truck_route': route_sol[0],
-                     'cargo_route': route_sol[-1],
-                    },
-            'cost':{'truck_cost', costs[0],
-                    'travel_cost', costs[1],
-                    'transfer_cost', costs[2],}
-            }
+    pdpt_ins = read_pickle(pdpt_ins_filename)
+    pdotw_sol = read_pickle(pdpt_ini_sol_res_filename)
     
-    res_filename = dir_ + '/toyimprove.pkl'
+
+    
+    subroutes = select_subroutes(pdpt_ins, pdotw_sol['route']['cargo_route'], pdotw_sol['route']['used_truck'], verbose)
+
+    res = pdpt_route_schedule_decomposition(dir_+f'/out/case{case_num}', pdpt_ins, subroutes, verbose = 1)
+  
+    res_filename = os.path.join(dir_, f'out/case{case_num}_rasdSol.pkll')
     with open(res_filename, 'wb') as pickle_file:
         pickle.dump(res, pickle_file)
-    
-    return res
 
-    
 
 def example():
     return None

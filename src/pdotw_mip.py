@@ -1,3 +1,7 @@
+import os, sys
+src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
+sys.path.insert(1, src_dir_)
+
 from gurobipy import Model, quicksum, GRB
 import numpy as np
 from pdpt_route_schedule import MP_to_SP, cpo_sub, calculate_SP_cost, postprocess_pdpt_solution

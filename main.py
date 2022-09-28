@@ -55,8 +55,9 @@ def main():
 
 
     for case_num in (range(1,6,1)):
+    # for case_num in [1,]: 
         with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_rasd.log')):
-            pdpt_rasd(DATA_DIR, case_num, verbose = 0)
+            pdpt_rasd(DATA_DIR, case_num, num_iteration = 1, verbose = 0)
 
     # pdpt_sol_res_filename  = os.path.join(DATA_DIR, f'out/case{case_num}_finalSol.pkl')
 

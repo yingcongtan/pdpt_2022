@@ -12,6 +12,8 @@ sys.path.insert(1, src_dir_)
 
 
 from docplex.cp.model import end_of, start_of, CpoModel
+import docplex.cp as cpotpimizer
+
 from gurobipy import Model, GRB, quicksum
 import csv
 from util import group_cycle_truck
@@ -1013,7 +1015,7 @@ def greedy_fix_MP(constant, selected_cargo,
 def MP_to_SP(constant, selected_cargo, 
     created_truck_yCycle, created_truck_nCycle, created_truck_all, 
     selected_edge, selected_node,
-    x_sol, s_sol, z_sol, y_sol, u_sol, D_sol):
+    x_sol, s_sol, z_sol, y_sol, u_sol, D_sol, verbose = 0):
     
     """
     A very commonly used function!
@@ -1039,9 +1041,11 @@ def MP_to_SP(constant, selected_cargo,
     truck_MP = []
     for truck_ in created_truck_all.keys():
         if s_sol[truck_] == 1:
-            print('The truck', truck_, 'is used!')
+            if verbose >0:
+                print('The truck', truck_, 'is used!')
             truck_MP.append(truck_)
-            print(truck_MP)
+    if verbose > 0:
+        print(truck_MP)
     
     # create node_list
     node_list = selected_node
@@ -1073,7 +1077,8 @@ def MP_to_SP(constant, selected_cargo,
                 return [], {}, {}, \
                        {}, {}, \
                        [], {}, {}
-        print('Visited nodes of truck ', truck_, ' :', truck_nodes[truck_])
+        if verbose >0:
+            print('Visited nodes of truck ', truck_, ' :', truck_nodes[truck_])
     
     # truck_nodes_index: dictionary of node visited ranks for a truck
     # WHEN THERE IS CYCLE, truck_nodes_index IS PROBLAMATIC!
@@ -1212,8 +1217,9 @@ def cpo_sub(constant, selected_cargo,
             node1 = truck_nodes[truck_][i]
             node2 = truck_nodes[truck_][i+1]
             D[(node1, node2, truck_)] = \
-            SP.interval_var(size = int(np.ceil(selected_edge[(node1, node2)])))
-            # SP.interval_var(size = selected_edge[(node1, node2)])
+            SP.interval_var(size = selected_edge[(node1, node2)])
+            # SP.interval_var(size = int(np.ceil(selected_edge[(node1, node2)])))
+
         node_last = truck_nodes[truck_][-1]
         D[(node_last, dummy_node, truck_)] = SP.interval_var(size = 0)
         
@@ -1415,10 +1421,23 @@ def cpo_sub(constant, selected_cargo,
     
     # This param is needed for running SP.solve() in linux environment:
     # execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer'
-    SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Quiet',
-                          execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
+
+    # SP.parameters.OutputFlag = 1
+    # LogFile = '/home/tan/Documents/cp_log.log'
+
+    SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Verbose',
+                     execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
     
     feasibility_SP = SP_sol.get_solve_status()
+
+    SP_sol.write('/home/tan/Documents/cp_log.log')
+    SP_sol.get_search_status()
+
+    conflict = cpotpimizer.solution.CpoRefineConflictResult(SP_sol)
+    conflic_cont = conflict.get_all_member_constraints()
+    print(conflic_cont)
+    conflict.print_conflict('/home/tan/Documents/cp_conflict.log')
+    print(feasibility_SP)
     
     
     ###### Solution retriveal ######

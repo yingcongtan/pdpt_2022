@@ -1122,7 +1122,9 @@ def MP_to_SP(constant, selected_cargo,
         for node_ in node_list:
             if u_sol[(node_, cargo_)] == 1:
                 transfer_nodes.append((node_, cargo_))
-    print('transfer_nodes:', transfer_nodes)
+    
+    if verbose > 0:
+        print('transfer_nodes:', transfer_nodes)
                 
     # cargo_unload: cargos that are unloaded by a truck at a node
     cargo_unload = {}
@@ -1422,9 +1424,6 @@ def cpo_sub(constant, selected_cargo,
     # This param is needed for running SP.solve() in linux environment:
     # execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer'
 
-    # SP.parameters.OutputFlag = 1
-    # LogFile = '/home/tan/Documents/cp_log.log'
-
     SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Verbose',
                      execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
     
@@ -1435,9 +1434,7 @@ def cpo_sub(constant, selected_cargo,
 
     conflict = cpotpimizer.solution.CpoRefineConflictResult(SP_sol)
     conflic_cont = conflict.get_all_member_constraints()
-    print(conflic_cont)
     conflict.print_conflict('/home/tan/Documents/cp_conflict.log')
-    print(feasibility_SP)
     
     
     ###### Solution retriveal ######

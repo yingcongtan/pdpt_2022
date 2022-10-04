@@ -271,6 +271,27 @@ def pdotw_mip_gurobi(constant,
         
     """
 
+    def early_termination(model, where, call_iter):
+
+        if where == GRB.Callback.MIP:
+            objbst = model.cbGet(GRB.Callback.MIP_OBJBST)
+            if call_iter == 0:
+                no_improve_iter == 0
+                curr_obj = 0
+
+            if objbst == curr_obj:
+                no_improve_iter +=1
+            else:
+                no_improve_iter = 0
+                
+            curr_obj = objbst
+
+            if no_improve_iter >=50:
+                model.terminate()
+
+    call_iter = 0
+    no_improve_iter = 0
+    
     MP = Model("Gurobi MIP for PDPTW")
     
 
@@ -807,6 +828,7 @@ def pdotw_mip_gurobi(constant,
     ###### Integrate the model and optimize ######
 #     cost_travel 
     MP.setObjective(cost_cargo_size + cost_cargo_number)
+    # MP.setObjective(cost_cargo_number)
     MP.modelSense = GRB.MAXIMIZE
     MP.Params.timeLimit = runtime
     MP.Params.OutputFlag = 1
@@ -816,7 +838,7 @@ def pdotw_mip_gurobi(constant,
     MP.Params.Heuristics = 0.5
     MP.Params.LogToConsole  = 0
     MP.update()
-    MP.optimize()
+    MP.optimize(early_termination)
     
     # if infeasible
     if MP.Status == 3:

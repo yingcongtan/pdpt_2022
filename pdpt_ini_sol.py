@@ -103,8 +103,6 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
     res, truck_keys_shuffle, selected_truck, selected_cargo = initialization_pdotw(ins, greedy_initialization, verbose = verbose)
 
-    print(truck_keys_shuffle)
-
     # load data from ins
     truck = ins['truck']
     cargo = ins['cargo']
@@ -123,9 +121,10 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
     # edge_shortest, path_shortest = replace_edge_by_shortest_length_nx(nodes, edges)
     # single_truck_deviation = calculate_single_truck_deviation(truck, cargo, edge_shortest)
-    time_start_all = time.time()
-
+    
+    runtime_pdotw = []
     for truck_key in truck_keys_shuffle:
+        start_time = time.time()
         if verbose >0:
             print(f'========= START [PDOTW with truck {truck_key}] ========= ')
 
@@ -262,7 +261,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
             postprocess_solution_pdotw(cargo, truck, 
             selected_cargo, created_truck_all,
             node_list_truck_hubs, 
-            x_sol, y_sol, truck_route, cargo_route, verbose = verbose-2)
+            x_sol, y_sol, truck_route, cargo_route, verbose = verbose-1)
             
             for truck_ in truck_used:
                 if truck_ not in truck_used_total:
@@ -285,6 +284,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                 if value == 1:
                     del selected_cargo[key[1]]
 
+        runtime_pdotw.append(time.time()-start_time)
         print(f'========= END [PDOTW with truck {truck_key}] ========= \n')
 
     truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest, truck_used_total, truck_route)
@@ -297,6 +297,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                    'Sb_sol': Sb_sol_total,
                    'Db_sol': Db_sol_total,
                    'Ab_sol': Ab_sol_total,
+                   'runtime': runtime_pdotw,
                   },
            'route': {'truck_yCycle':list(created_truck_yCycle_total.keys()),
                      'used_truck': truck_used_total,
@@ -307,21 +308,6 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                     'travel_cost' : travel_cost,
                     },
           }
-    # res = {'truck_yCycle': list(created_truck_yCycle_total.keys()),
-    #        'used_truck': truck_used_total,
-    #        'truck_route': truck_route,
-    #        'cargo_route': cargo_route,
-    #        'x_sol': x_sol_total,
-    #        'y_sol': y_sol_total,
-    #        'S_sol': S_sol_total,
-    #        'D_sol': D_sol_total,
-    #        'A_sol': A_sol_total,
-    #        'Sb_sol': Sb_sol_total,
-    #        'Db_sol': Db_sol_total,
-    #        'Ab_sol': Ab_sol_total,
-    #        'truck_cost' : truck_cost,
-    #        'travel_cost' : travel_cost,
-    #       }
 
     if verbose > 1:
         print('+++ Summary of the initial solution')
@@ -330,44 +316,44 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         for c in selected_cargo.keys():
             removed_cargo.append(c)
 
-        print('\nThe truck_used_total:', len(truck_used_total))
+        print(f'The truck_used_total: [{len(truck_used_total)}]')
         print(truck_used_total)
 
         assert len(truck_used_total) <= len(truck) , \
         "len(truck_used_total) > len(truck)"
 
-        print('\nThe truck_route:', len(truck_route))
+        print(f'The truck_route: [{len(truck_route)}]')
         for t, v in truck_route.items():
             print(t, v)
         assert len(truck) == len(truck_route), "len(truck) != len(truck_route)"
 
-        print('\nThe cargo_route:', len(cargo_route))
+        print(f'The cargo_route: [{len(cargo_route)}]')
         for c, v in cargo_route.items():
             print(c, v)
         assert len(cargo) == len(cargo_route), "len(cargo) != len(cargo_route)"
 
         if verbose>2:
-            print('\nThe cargo_delivered_total:', len(cargo_delivered_total))
+            print(f'The cargo_delivered_total: [len(cargo_delivered_total)]')
             print([cargo_key for cargo_key in cargo_delivered_total.keys()])
             
-            print('\nThe cargo_undelivered_total:', len(cargo_undelivered_total))
+            print(f'The cargo_undelivered_total: [len(cargo_undelivered_total)]')
             print([cargo_key for cargo_key in cargo_undelivered_total.keys()])
 
-            print('\nThe truck_per_cargo:', len(truck_per_cargo))
+            print(f'The truck_per_cargo: [len(truck_per_cargo)]')
             for t, v in truck_per_cargo.items():
                 print(t, v)
             assert len(truck_per_cargo) == len(cargo), \
             "len(truck_per_cargo) != len(cargo)"
 
-            print('\nThe cargo_in_truck:', len(cargo_in_truck))
+            print(f'The cargo_in_truck: [en(cargo_in_truck)]')
             for t, v in cargo_in_truck.items():
                 print(t, v)
 
-        print('\nThe removed_cargos are:', len(removed_cargo))
+        print(f'The removed_cargos: [{len(removed_cargo)}]')
         print(removed_cargo)
 
-        time_end_all = time.time()
-        print('\nThe total runtime is:', time_end_all - time_start_all)
+        
+        print(f'The total runtime: [{sum(runtime_pdotw)}]')
 
 
     return res

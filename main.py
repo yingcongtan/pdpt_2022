@@ -37,8 +37,8 @@ def main():
     #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/data', f'case{case_num}_read_data.log')):
     #         read_pdpt_csv_to_pickle(case_num, DATA_DIR+'/data', verbose = VERBOSE-1)
 
-    for case_num in (range(1,6,1)):
-    # for case_num in [1,]: 
+    # for case_num in (range(1,6,1)):
+    for case_num in [1,]: 
         print(f'\n______________CASE {case_num}_________________')
         Path(DATA_DIR+f'/out/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
         with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_initSol.log')):

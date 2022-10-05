@@ -89,7 +89,7 @@ def postprocess_solution_pdotw(cargo, truck,
     # Generate cargo_in_truck
     for c in selected_cargo.keys():
         if y_sol[(truck_, c)] == 1:
-            if verbose > 0: 
+            if verbose > 1: 
                 print('    The cargo {} has been carried by truck {}'.format(c, truck_))
             truck_used_flag += 1
             cargo_in_truck[truck_].append(c)
@@ -103,19 +103,19 @@ def postprocess_solution_pdotw(cargo, truck,
         ### Evaluate whether the truck has arrived at its destination
         # if so
         if v[1] == truck[truck_][1]:
-            if verbose > 0: 
+            if verbose > 1: 
                 print('+++ Truck {}'.format(truck_), 'has arrived at its real destination!')
                 
         # else: the truck would be considered in the hub problem
         else:
-            if verbose > 0: 
+            if verbose > 1: 
                 print('+++ Truck {}'.format(truck_), 'has NOT arrived at its real destination!')
             
 
     # if the truck is not used in this cluster
     # it just goes from its origin to its destination
     else:
-        if verbose > 0: 
+        if verbose > 1: 
             print('+++ The {} is unused!'.format(truck_))
         
     
@@ -138,10 +138,10 @@ def postprocess_solution_pdotw(cargo, truck,
                     break
 
 
-    if verbose > 0: 
+    if verbose > 1: 
         print('+++ The truck_route:')
     for key, value in truck_route.items():
-        if verbose >0:
+        if verbose >1:
             print(f'        {key, value}')
     
     ###### CARGO ######
@@ -191,7 +191,7 @@ def postprocess_solution_pdotw(cargo, truck,
                         break
                 # the cargo route is just a piece of the truck route
                 cargo_undelivered[c] = (t, cargo_route_origin.copy())
-                if verbose > 0: 
+                if verbose > 1: 
                     print('+++ The undelivered cargo:', cargo_undelivered[c])
                 for node_ in cargo_route_origin:
                     cargo_route[c].append((t, node_))
@@ -206,30 +206,22 @@ def postprocess_solution_pdotw(cargo, truck,
         if (t,c) in y_sol.keys() and y_sol[(t,c)] == 1:
             cargo_truck_origin[c] = t
     
+    
     if verbose > 0:
         print('+++ Summary of postprocessing')
-        print(f'   [The truck_used] size: {len(truck_used)}')
-        print(f'       {truck_used}')
+        print(f'   [The truck_used] {truck_used}')
 
-        print(f'   [The truck_route] size: {len(truck_route)}')
-        for t_key, t_value in truck_route.items():
-            print(f'       {t_key, t_value}')
+        if len(truck_used) > 0:
 
-        print(f'   [The cargo_delivered] size: {len(cargo_delivered)}')
-        for t_key, t_value in cargo_delivered.items():
-            print(f'       {t_key, t_value}')
+            print(f'   [The truck_route] so far {truck_route[truck_used[0]]}')
 
-        print(f'   [The cargo_undelivered] size: {len(cargo_undelivered)}')
-        for t_key, t_value in cargo_undelivered.items():
-            print(f'       {t_key, t_value}')
+            print(f'   [The cargo_in_truck] {cargo_in_truck[truck_used[0]]}')
 
-        print(f'   [The cargo_truck_origin] size: {len(cargo_truck_origin)}')
-        for t_key, t_value in cargo_truck_origin.items():
-            print(f'       {t_key, t_value}')
+            print(f'   [Cargos delivery routes by {truck_used[0]}] size: {len(cargo_delivered)}')
+            for t_key, t_value in cargo_delivered.items():
+                print(f'       {t_key, t_value}')
 
-        print(f'   [The cargo_in_truck] size: {len(cargo_in_truck)}')
-        for t_key, t_value in cargo_in_truck.items():
-            print(f'       {t_key, t_value}')
+
             
             
     
@@ -820,12 +812,12 @@ def pdotw_mip_gurobi(constant,
     
     
     ###### Integrate the model and optimize ######
-#     cost_travel 
+
+    # private parameters to help with callback function
     MP._cur_obj = float('inf')
     MP._time = time.time()
 
     MP.setObjective(cost_cargo_size + cost_cargo_number)
-    # MP.setObjective(cost_cargo_number)
     MP.modelSense = GRB.MAXIMIZE
     MP.Params.timeLimit = runtime
     MP.Params.OutputFlag = 1

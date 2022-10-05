@@ -101,8 +101,9 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                     greedy_initialization = False,
                     verbose = 0):  
 
-    res, truck_keys_shuffle, selected_truck, selected_cargo = initialization_pdotw(ins, greedy_initialization, verbose)
+    res, truck_keys_shuffle, selected_truck, selected_cargo = initialization_pdotw(ins, greedy_initialization, verbose = verbose)
 
+    print(truck_keys_shuffle)
 
     # load data from ins
     truck = ins['truck']

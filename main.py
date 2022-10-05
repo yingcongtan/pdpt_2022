@@ -32,17 +32,18 @@ def main():
     ConsoleLogger.start(logfile, mode='w', time_format='[%m-%d %H:%M:%S]')
 
     # read raw data and convert it to dict and save as pickle files
-    # for case_num in (range(4,6,1)):
+    # for case_num in (range(1,6,1)):
     # # for case_num in [3]:
     #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/data', f'case{case_num}_read_data.log')):
     #         read_pdpt_csv_to_pickle(case_num, DATA_DIR+'/data', verbose = VERBOSE-1)
 
-    # for case_num in (range(4,6,1)):
-    # # for case_num in [3,]: 
-    #     Path(DATA_DIR+f'/out/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
-    #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_initSol.log')):
-    #         # construct initial solutions by solving multiple PDOTW 
-    #         pdpt_ini_sol(case_num, DATA_DIR, greedy_initialization, verbose = VERBOSE)
+    for case_num in (range(1,6,1)):
+    # for case_num in [1,]: 
+        print(f'\n______________CASE {case_num}_________________')
+        Path(DATA_DIR+f'/out/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
+        with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_initSol.log')):
+            # construct initial solutions by solving multiple PDOTW 
+            pdpt_ini_sol(case_num, DATA_DIR, greedy_initialization, verbose = VERBOSE)
 
     # repair initial solution through a best_insertion heuristic
     # new_sol = best_insertion(ini_sol)
@@ -54,10 +55,10 @@ def main():
     # ini_sol_res_filename = os.path.join(DATA_DIR, f'out/case{case_num}_initSol.pkl')
 
 
-    for case_num in (range(1,6,1)):
-    # for case_num in [1,]: 
-        with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_rasd.log')):
-            pdpt_rasd(DATA_DIR, case_num, num_iteration = 1, verbose = 0)
+    # for case_num in (range(1,6,1)):
+    # # for case_num in [1,]: 
+    #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_rasd.log')):
+    #         pdpt_rasd(DATA_DIR, case_num, num_iteration = 1, verbose = 0)
 
     # pdpt_sol_res_filename  = os.path.join(DATA_DIR, f'out/case{case_num}_finalSol.pkl')
 

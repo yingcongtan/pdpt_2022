@@ -1,11 +1,10 @@
-import os, sys
+import os, sys, time
 src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
 sys.path.insert(1, src_dir_)
 
 from gurobipy import Model, quicksum, GRB
 import numpy as np
 from pdpt_route_schedule import MP_to_SP, cpo_sub, calculate_SP_cost, postprocess_pdpt_solution
-import os
 from util import read_pickle, group_cycle_truck
 
 def eval_pdotw_sol(constant, edge_shortest,
@@ -271,26 +270,21 @@ def pdotw_mip_gurobi(constant,
         
     """
 
-    def early_termination(model, where, call_iter):
+    def early_termination_callback(model, where):
+        if where == GRB.Callback.MIPNODE:
+            # Get model objective
+            obj = model.cbGet(GRB.Callback.MIPNODE_OBJBST)
 
-        if where == GRB.Callback.MIP:
-            objbst = model.cbGet(GRB.Callback.MIP_OBJBST)
-            if call_iter == 0:
-                no_improve_iter == 0
-                curr_obj = 0
+            # Has objective changed?
+            if abs(obj - model._cur_obj) > 1e-8:
+                # If so, update incumbent and time
+                model._cur_obj = obj
+                model._time = time.time()
 
-            if objbst == curr_obj:
-                no_improve_iter +=1
-            else:
-                no_improve_iter = 0
-                
-            curr_obj = objbst
+        # Terminate if objective has not improved in 20s
+        if time.time() - model._time > 10:
+            model.terminate()
 
-            if no_improve_iter >=50:
-                model.terminate()
-
-    call_iter = 0
-    no_improve_iter = 0
     
     MP = Model("Gurobi MIP for PDPTW")
     
@@ -827,6 +821,9 @@ def pdotw_mip_gurobi(constant,
     
     ###### Integrate the model and optimize ######
 #     cost_travel 
+    MP._cur_obj = float('inf')
+    MP._time = time.time()
+
     MP.setObjective(cost_cargo_size + cost_cargo_number)
     # MP.setObjective(cost_cargo_number)
     MP.modelSense = GRB.MAXIMIZE
@@ -838,7 +835,7 @@ def pdotw_mip_gurobi(constant,
     MP.Params.Heuristics = 0.5
     MP.Params.LogToConsole  = 0
     MP.update()
-    MP.optimize(early_termination)
+    MP.optimize(callback=early_termination_callback)
     
     # if infeasible
     if MP.Status == 3:

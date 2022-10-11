@@ -231,6 +231,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
         ### if origin stage subproblem for the current truck is feasible
         if obj_val_MP >= 0:
+            
             if verbose >0:
                 print(f'+++ Postprocee Gurobi solution if a feasible solution is found')
             cost_cargo_size_value_total[truck_key] = cost_cargo_size_value

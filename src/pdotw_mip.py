@@ -223,8 +223,6 @@ def postprocess_solution_pdotw(cargo, truck,
 
 
             
-            
-    
     return truck_used, cargo_delivered, cargo_undelivered, \
            cargo_truck_origin, cargo_in_truck
 
@@ -266,15 +264,31 @@ def pdotw_mip_gurobi(constant,
         if where == GRB.Callback.MIPNODE:
             # Get model objective
             obj = model.cbGet(GRB.Callback.MIPNODE_OBJBST)
-
-            # Has objective changed?
             if abs(obj - model._cur_obj) > 1e-8:
                 # If so, update incumbent and time
                 model._cur_obj = obj
                 model._time = time.time()
 
+        if where == GRB.Callback.MIPSOL:
+            # Get model objective
+            obj = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
+            # Has objective changed?
+            if abs(obj - model._cur_obj) > 1e-8:
+                # If so, update incumbent and time
+                model._no_improve_iter = 0
+                model._cur_obj = obj
+            else:
+                model._no_improve_iter += 1
+
+
         # Terminate if objective has not improved in 20s
-        if time.time() - model._time > 10:
+        if time.time() - model._time > 20:
+            MP._termination_flag = 1
+            model.terminate()
+
+        if model._no_improve_iter > 50:
+
+            MP._termination_flag = 2
             model.terminate()
 
     
@@ -816,6 +830,8 @@ def pdotw_mip_gurobi(constant,
     # private parameters to help with callback function
     MP._cur_obj = float('inf')
     MP._time = time.time()
+    MP._no_improve_iter = 0
+    MP._termination_flag = 0
 
     MP.setObjective(cost_cargo_size + cost_cargo_number)
     MP.modelSense = GRB.MAXIMIZE
@@ -827,8 +843,10 @@ def pdotw_mip_gurobi(constant,
     MP.Params.Heuristics = 0.5
     MP.Params.LogToConsole  = 0
     MP.update()
-    MP.optimize(callback=early_termination_callback)
-    
+    # MP.optimize(callback=early_termination_callback)
+    MP.optimize()
+
+
     # if infeasible
     if MP.Status == 3:
         if verbose >0: print('+++ MIP [Infeasible Proved] ')
@@ -846,6 +864,10 @@ def pdotw_mip_gurobi(constant,
     
     if verbose > 0:
         print('+++ MP [Feasible] ')
+        if MP._termination_flag == 1:
+            print('soft termination: failed to improve best solution for 20s.')
+        elif MP._termination_flag == 2:
+            print('soft termination: failed to improve obj for 50 consecutive feasible solutions.')
         print("   [Gurobi obj value] is %i" % obj_val_MP)
         print("   [Gurobi runtime] is %f" % runtime_MP)
     

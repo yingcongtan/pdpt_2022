@@ -226,7 +226,7 @@ def postprocess_solution_pdotw(cargo, truck,
     return truck_used, cargo_delivered, cargo_undelivered, \
            cargo_truck_origin, cargo_in_truck
 
-def pdotw_mip_gurobi(constant, 
+def pdotw_mip_gurobi(constant, y_sol_,
     selected_cargo, single_truck_deviation,
     created_truck_yCycle, created_truck_nCycle, created_truck_all,
     node_list_truck_hubs, selected_edge, node_cargo_size_change, 
@@ -292,8 +292,10 @@ def pdotw_mip_gurobi(constant,
             model.terminate()
 
     
-    MP = Model("Gurobi MIP for PDPTW")
-    
+    if y_sol_ is None:
+        MP = Model("Gurobi MIP for PDOTW")
+    else:
+        MP = Model("Minimize travel cost of PDOTW sol")
 
     
     
@@ -318,11 +320,16 @@ def pdotw_mip_gurobi(constant,
     
     # binary variables y
     # ==1 if cargo_ is carried by truck_
-    y = {}
-    for truck_ in created_truck_all.keys():
-        for cargo_ in selected_cargo.keys():
-            y[(truck_, cargo_)] = MP.addVar(vtype=GRB.BINARY)
+    if y_sol_ is None:
+        y = {}
+        for truck_ in created_truck_all.keys():
+            for cargo_ in selected_cargo.keys():
+                y[(truck_, cargo_)] = MP.addVar(vtype=GRB.BINARY)
 
+    else:
+        for truck_ in created_truck_all.keys():
+            for cargo_ in selected_cargo.keys():
+                y[(truck_, cargo_)] = y_sol_[(truck_, cargo_)]
     # Integer variables S
     # current total size of cargos on truck_ at node_
     S = {}
@@ -365,10 +372,6 @@ def pdotw_mip_gurobi(constant,
         Ab[(node_, truck_)] = MP.addVar(vtype=GRB.INTEGER, lb=0)
     
         
-    
-
-    
-    
     ###### Constraints ######
     ###### Distinguish cycle trucks and non-cycle trucks ######
     
@@ -794,18 +797,42 @@ def pdotw_mip_gurobi(constant,
     
     ###### Objective ######
     
-    # cargo size cost: proportional to the total size of cargo carried by the only truck
-    cost_cargo_size = quicksum(y[truck_, cargo_] * selected_cargo[cargo_][0] * 
-                               constant['truck_running_cost'] * 1
-                               for truck_ in created_truck_all.keys()
-                               for cargo_ in selected_cargo.keys())
-    
-    # cargo number cost: proportional to the number of cargo carried by the only truck
-    cost_cargo_number = quicksum(y[truck_, cargo_] * 
-                                 constant['truck_running_cost'] * 1000
-                                 for truck_ in created_truck_all.keys()
-                                 for cargo_ in selected_cargo.keys())
-    
+
+    if y_sol_ is None:
+        # cargo size cost: proportional to the total size of cargo carried by the only truck
+        cost_cargo_size = quicksum(y[truck_, cargo_] * selected_cargo[cargo_][0] * 
+                                constant['truck_running_cost'] * 1
+                                for truck_ in created_truck_all.keys()
+                                for cargo_ in selected_cargo.keys())
+        
+        # cargo number cost: proportional to the number of cargo carried by the only truck
+        cost_cargo_number = quicksum(y[truck_, cargo_] * 
+                                    constant['truck_running_cost'] * 1000
+                                    for truck_ in created_truck_all.keys()
+                                    for cargo_ in selected_cargo.keys())
+        
+        MP.setObjective(cost_cargo_size + cost_cargo_number)
+        MP.modelSense = GRB.MAXIMIZE
+        # set Params.Heuristics to 0.5 
+        # such that it better finds feasible solution
+        MP.Params.Heuristics = 0.5
+        MP.Params.LogFile = filename
+        callback=early_termination_callback
+
+    else:
+
+        cost_travel = quicksum(x[(node1, node2, truck_)] * 
+                            selected_edge[(node1, node2)] * 
+                            constant['truck_running_cost']
+                            for truck_ in created_truck_all.keys()
+                            for node1 in node_list_truck_hubs[truck_]
+                            for node2 in node_list_truck_hubs[truck_]
+                            if node1 != node2)
+        MP.setObjective(cost_travel)
+        MP.modelSense = GRB.MINIMIZE
+        MP.Params.LogFile = filename[:-3]+'_reopt.log'
+        callback=None
+
     # # traveling cost: proportional to total travel time
     # cost_travel = quicksum(x[(node1, node2, truck_)] * 
     #                        selected_edge[(node1, node2)] * 
@@ -833,17 +860,19 @@ def pdotw_mip_gurobi(constant,
     MP._no_improve_iter = 0
     MP._termination_flag = 0
 
-    MP.setObjective(cost_cargo_size + cost_cargo_number)
-    MP.modelSense = GRB.MAXIMIZE
+    # MP.setObjective(cost_cargo_size + cost_cargo_number)
+    # MP.modelSense = GRB.MAXIMIZE
     MP.Params.timeLimit = runtime
     MP.Params.OutputFlag = 1
     MP.Params.LogFile = filename
-    # set Params.Heuristics to 0.5 
-    # such that it better finds feasible solution
-    MP.Params.Heuristics = 0.5
     MP.Params.LogToConsole  = 0
     MP.update()
-    # MP.optimize(callback=early_termination_callback)
+
+    if callback is None:
+        MP.optimize()
+    else:
+        MP.optimize(callback=callback)
+
     MP.optimize()
 
 
@@ -892,11 +921,14 @@ def pdotw_mip_gurobi(constant,
                     count += 1
                 
     # binary variables y
-    y_sol = {}
-    for truck_ in created_truck_all.keys():
-        for cargo_ in selected_cargo.keys():
-            y_sol[(truck_, cargo_)] = sol[count]
-            count += 1
+    if y_sol_ is None:
+        y_sol = {}
+        for truck_ in created_truck_all.keys():
+            for cargo_ in selected_cargo.keys():
+                y_sol[(truck_, cargo_)] = sol[count]
+                count += 1
+    else:
+        y_sol = y_sol_.copy() # for the convinience of the printout below
     
     # integer variable S
     S_sol = {}
@@ -936,15 +968,15 @@ def pdotw_mip_gurobi(constant,
         Ab_sol[(node_, truck_)] = sol[count]
         count += 1
     
-    if verbose > 1:
-        print('+++ The x_sol:')
-        for key, value in x_sol.items():
-            if value == 1:
-                print(f'        {key, value}')
-        print('+++ The y_sol:')
-        for key, value in y_sol.items():
-            if value == 1:
-                print(f'        {key, value}')
+    # if verbose > 1:
+    #     print('+++ The x_sol:')
+    #     for key, value in x_sol.items():
+    #         if value == 1:
+    #             print(f'        {key, value}')
+    #     print('+++ The y_sol:')
+    #     for key, value in y_sol.items():
+    #         if value == 1:
+    #             print(f'        {key, value}')
 
     # cargo cost: proportional to the total size of cargo carried by the only truck
     cost_cargo_size_value = 0

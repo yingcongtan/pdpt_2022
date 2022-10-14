@@ -215,7 +215,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         Sb_sol, Db_sol, Ab_sol, \
         cost_cargo_size_value, cost_cargo_number_value, \
         cost_travel_value, cost_deviation_value\
-        = pdotw_mip_gurobi(constant, 
+        = pdotw_mip_gurobi(constant, None,   # note, by seting y_sol = None, we are solving PDOTW to maximize # of cargos we deliver
         selected_cargo, single_truck_deviation,
         created_truck_yCycle, created_truck_nCycle, created_truck_all,
         node_list_truck_hubs, selected_edge, node_cargo_size_change,
@@ -232,6 +232,16 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         ### if origin stage subproblem for the current truck is feasible
         if obj_val_MP >= 0:
             
+            obj_val_MP, runtime_MP, \
+            x_sol, _, y_sol, S_sol, D_sol, A_sol, \
+            Sb_sol, Db_sol, Ab_sol, \
+            cost_cargo_size_value, cost_cargo_number_value, \
+            cost_travel_value, cost_deviation_value\
+            = pdotw_mip_gurobi(constant, y_sol,   # note, by seting y_sol = y_sol, we are minimizing the travling distance of PDOTW solution
+            created_truck_yCycle, created_truck_nCycle, created_truck_all,
+            node_list_truck_hubs, selected_edge, node_cargo_size_change,
+            100, gurobi_log_file, verbose = 1)
+
             if verbose >0:
                 print(f'+++ Postprocee Gurobi solution if a feasible solution is found')
             cost_cargo_size_value_total[truck_key] = cost_cargo_size_value

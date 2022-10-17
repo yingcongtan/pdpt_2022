@@ -843,8 +843,8 @@ def pdotw_mip_gurobi(constant,
     MP.Params.Heuristics = 0.5
     MP.Params.LogToConsole  = 0
     MP.update()
-    # MP.optimize(callback=early_termination_callback)
-    MP.optimize()
+    MP.optimize(callback=early_termination_callback)
+    # MP.optimize()
 
 
     # if infeasible

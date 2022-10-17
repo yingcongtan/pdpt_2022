@@ -310,13 +310,13 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                     },
           }
 
-    if verbose > 1:
-        print('+++ Summary of the initial solution')
-        print('\nThe final length of selected_cargo is:', len(selected_cargo))
-        removed_cargo = []
-        for c in selected_cargo.keys():
-            removed_cargo.append(c)
 
+    print('+++ Summary of the initial solution')
+    removed_cargo = selected_cargo.copy()
+    print(f'\n [{len(removed_cargo)}] undelivered cargos:', removed_cargo)
+    print(f'The total runtime: [{sum(runtime_pdotw)}]')
+
+    if verbose > 1:
         print(f'The truck_used_total: [{len(truck_used_total)}]')
         print(truck_used_total)
 
@@ -350,11 +350,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
             for t, v in cargo_in_truck.items():
                 print(t, v)
 
-        print(f'The removed_cargos: [{len(removed_cargo)}]')
-        print(removed_cargo)
 
-        
-        print(f'The total runtime: [{sum(runtime_pdotw)}]')
 
 
     return res

@@ -1535,7 +1535,8 @@ def greedy_heuristic(constant, selected_cargo,
         
         # try each candidate
         for candidate in candidates:
-            print('Evaluating removing', candidate, 'now..................')
+            if verbose > 0:
+                print('Evaluating removing', candidate, 'now..................')
             
             # the following four dicts store removed cargo
             cargo_in_removed = {}
@@ -1596,8 +1597,9 @@ def greedy_heuristic(constant, selected_cargo,
                         index = truck_nodes[truck_].index(node_)
                         truck_nodes[truck_].remove(node_)
 #                         print('cargo_unload[({}, {})]'.format(node_, truck_), cargo_unload[(node_, truck_)])
-#                         print('cargo_load[({}, {})]'.format(node_, truck_), cargo_load[(node_, truck_)])
-                        print('node {} is removed from truck {}!'.format(node_, truck_))
+#                         print('cargo_load[({}, {})]'.format(node_, truck_), cargo_load[(node_, truck_)]   
+                        if verbose > 0:
+                            print('node {} is removed from truck {}!'.format(node_, truck_))
                         truck_nodes_removed.append((truck_, node_, index))
 #                         print('Remove node', node, 
 #                               'from visited nodes of truck', truck)
@@ -1638,12 +1640,12 @@ def greedy_heuristic(constant, selected_cargo,
             # if feasible, break
             if feasibility_SP == 'Feasible':
                 removed_cargo = candidate
-                print('******Removing cargo', candidate, 'makes SP feasible******')
+                print('+++ Removing cargo', candidate, 'makes SP feasible ')
                 
                 if time_checker_cluster(constant, selected_cargo, created_truck_all, 
                                     selected_edge, truck_MP, truck_nodes, 
                                     cargo_unload, cargo_load, g_sol, h_sol, D_sol):
-                    print('\nThe time constraint of the current cluster is satisfied!')
+                    print('    The time constraint of the current cluster is satisfied!')
                 else:
                     sys.exit()
                 

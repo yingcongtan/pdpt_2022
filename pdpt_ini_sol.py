@@ -94,6 +94,7 @@ def initialization_pdotw(ins, greedy_sorting_truck = False, seed = 0, verbose = 
 def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                     path_, # file where all data of pdotw solutions are saved
                     greedy_initialization = False,
+                    optimize_pdotw_routes = True,
                     verbose = 0):  
 
     res, truck_keys_shuffle, selected_truck, selected_cargo = initialization_pdotw(ins, greedy_initialization, verbose = verbose)
@@ -225,48 +226,53 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
         ### if origin stage subproblem for the current truck is feasible
         if obj_val_MP >= 0:
-            delivered_cargo = {cargo_key: cargo[cargo_key] for truck_key, cargo_key in y_sol.keys()}
-            
-            # nodes in the cluster
-            # Note. cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time','departure_node', 'arrival_node']
-            # truck['nb_truck'] = ['departure_node', 'arrival_node', 'max_worktime', 'max_capacity']
-
-            selected_node = []
-            for v in delivered_cargo.values():
-                if v[3] not in selected_node:
-                    selected_node.append(v[3])
-                if v[4] not in selected_node:
-                    selected_node.append(v[4])
-            if created_truck[truck_key][0] not in selected_node:
-                selected_node.append(created_truck[truck_key][0])
-            if created_truck[truck_key][1] not in selected_node:
-                selected_node.append(created_truck[truck_key][1])
-
-            # edges in the cluster
-                selected_edge = {}
-                for i in selected_node:
-                    for j in selected_node:
-                        selected_edge[(i,j)] = edge_shortest[(i,j)]
+            if optimize_pdotw_routes == True:
+                print(f'+++ reoptimize pdotw routes to reduce the travel cost')
+                delivered_cargo = {cargo_key: cargo[cargo_key] for truck_key, cargo_key in y_sol.keys()}
                 
-                node_list_truck_hubs[truck_key] = selected_node.copy()
-                assert len(created_truck) == len(node_list_truck_hubs), "Inconsistent truck numbers"
-                node_cargo_size_change = \
-                generate_node_cargo_size_change(selected_node, delivered_cargo)
+                # nodes in the cluster
+                # Note. cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time','departure_node', 'arrival_node']
+                # truck['nb_truck'] = ['departure_node', 'arrival_node', 'max_worktime', 'max_capacity']
 
-                ### group cycle and non-cycle trucks
-                created_truck_yCycle, created_truck_nCycle, created_truck_all = \
-                group_cycle_truck(created_truck) 
+                selected_node = []
+                for v in delivered_cargo.values():
+                    if v[3] not in selected_node:
+                        selected_node.append(v[3])
+                    if v[4] not in selected_node:
+                        selected_node.append(v[4])
+                if created_truck[truck_key][0] not in selected_node:
+                    selected_node.append(created_truck[truck_key][0])
+                if created_truck[truck_key][1] not in selected_node:
+                    selected_node.append(created_truck[truck_key][1])
 
-            obj_val_MP, runtime_MP, \
-            x_sol, _, y_sol, S_sol, D_sol, A_sol, \
-            Sb_sol, Db_sol, Ab_sol, \
-            cost_cargo_size_value, cost_cargo_number_value, \
-            cost_travel_value, cost_deviation_value\
-            = pdotw_mip_gurobi(constant, y_sol,   # note, by seting y_sol = y_sol, we are minimizing the travling distance of PDOTW solution
-                                delivered_cargo, single_truck_deviation,
-                                created_truck_yCycle, created_truck_nCycle, created_truck_all,
-                                node_list_truck_hubs, selected_edge, node_cargo_size_change,
-                                100, gurobi_log_file, verbose = 1)
+                # edges in the cluster
+                    selected_edge = {}
+                    for i in selected_node:
+                        for j in selected_node:
+                            selected_edge[(i,j)] = edge_shortest[(i,j)]
+                    
+                    node_list_truck_hubs[truck_key] = selected_node.copy()
+                    assert len(created_truck) == len(node_list_truck_hubs), "Inconsistent truck numbers"
+                    node_cargo_size_change = \
+                    generate_node_cargo_size_change(selected_node, delivered_cargo)
+
+                    ### group cycle and non-cycle trucks
+                    created_truck_yCycle, created_truck_nCycle, created_truck_all = \
+                    group_cycle_truck(created_truck) 
+
+                obj_val_MP, runtime_MP, \
+                x_sol, _, y_sol, S_sol, D_sol, A_sol, \
+                Sb_sol, Db_sol, Ab_sol, \
+                cost_cargo_size_value, cost_cargo_number_value, \
+                cost_travel_value, cost_deviation_value\
+                = pdotw_mip_gurobi(constant, y_sol,   # note, by seting y_sol = y_sol, we are minimizing the travling distance of PDOTW solution
+                                    delivered_cargo, single_truck_deviation,
+                                    created_truck_yCycle, created_truck_nCycle, created_truck_all,
+                                    node_list_truck_hubs, selected_edge, node_cargo_size_change,
+                                    100, gurobi_log_file, verbose = 1)
+
+            else:
+                print(f'+++ Save PDOTW solutions directly, skip route reoptimization')
 
             if verbose >0:
                 print(f'+++ Postprocee Gurobi solution if a feasible solution is found')
@@ -329,8 +335,6 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
     travel_cost = sum([value for value in cost_travel_value_total.values()])
     truck_cost = constant['truck_fixed_cost']*len(truck_used_total)
 
-
-
     res = {'MIP': {'x_sol': x_sol_total,
                    'y_sol': y_sol_total,
                    'S_sol': S_sol_total,
@@ -342,6 +346,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                    'runtime': runtime_pdotw,
                   },
            'route': {'truck_yCycle':list(created_truck_yCycle_total.keys()),
+                     'cargo_in_truck':cargo_in_truck,
                      'used_truck': truck_used_total,
                      'truck_route': truck_route,
                      'cargo_route': cargo_route,
@@ -401,7 +406,7 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
 
 
-def pdpt_ini_sol(case_num, dir_, greedy_initialization, verbose = 0):
+def pdpt_ini_sol(case_num, dir_, greedy_initialization, optimize_pdotw_route, verbose = 0):
 
     # for case_num in range(1, 6, 1):
     if verbose > 0:
@@ -415,7 +420,7 @@ def pdpt_ini_sol(case_num, dir_, greedy_initialization, verbose = 0):
 
     path_ = os.path.join(dir_,'out','iniSol') + f'/case{case_num}' 
     Path(path_ +'_gurobi').mkdir(parents=True, exist_ok=True)
-    res = solve_pdotw_mip(pdpt_ins, path_, greedy_initialization, verbose)
+    res = solve_pdotw_mip(pdpt_ins, path_, greedy_initialization, optimize_pdotw_route, verbose)
     if verbose >0: print('=========== END INITIAL SOLUTION  =========== \n')
     
     filename = os.path.join(dir_,'out','iniSol')+f'/case{case_num}_iniSol.pkl'

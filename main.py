@@ -26,6 +26,7 @@ os.environ['DATA_DIR'] = args.datadir
 
 def main():
     greedy_initialization = False
+    optimize_pdotw_route = True
     remaining_time = RUNTIME_LIMIT
 
     assert os.path.isdir(DATA_DIR+'/data'), f'Can find data files in {DATA_DIR}/data'
@@ -42,19 +43,20 @@ def main():
     #         read_pdpt_csv_to_pickle(case_num, DATA_DIR+'/data', verbose = VERBOSE-1)
 
     # for case_num in (range(1,6,1)):
-    # for case_num in [1,]: 
-    #     curr_time = time.time()
-    #     print(f'\n______________CASE {case_num}_________________')
-    #     Path(DATA_DIR+f'/out/iniSol/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
-    #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','iniSol', f'case{case_num}_iniSol.log')):
-    #         # construct initial solutions by solving multiple PDOTW 
-    #         pdpt_ini_sol(case_num, DATA_DIR, greedy_initialization, verbose = VERBOSE)
-    #     remaining_time -= time.time()-curr_time
-    #     curr_time = time.time()
+    for case_num in [2,]:
+        # curr_time = time.time()
+        print(f'\n______________CASE {case_num}_________________')
+        Path(DATA_DIR+f'/out/iniSol/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
+        with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','iniSol', f'case{case_num}_iniSol.log')):
+            # construct initial solutions by solving multiple PDOTW 
+            pdpt_ini_sol(case_num, DATA_DIR, greedy_initialization, optimize_pdotw_route, verbose = VERBOSE)
+            
+        # remaining_time -= time.time()-curr_time
+        # curr_time = time.time()
     
-    #     if remaining_time<0:
-    #         print('===== reach runtime limit, exit')
-    #         return None
+        # if remaining_time<0:
+        #     print('===== reach runtime limit, exit')
+        #     return None
 
     # repair initial solution through a best_insertion heuristic
     # for case_num in [1,]: 
@@ -74,11 +76,11 @@ def main():
 
 
     # for case_num in (range(1,6,1)):
-    for case_num in [1,]: 
-        print(f'\n______________CASE {case_num}_________________')
-        Path(DATA_DIR+f'/out/impSol/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
-        with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','impSol', f'case{case_num}_iniSol.log')):
-            pdpt_rasd(DATA_DIR, case_num, num_iteration = 1, verbose = 0)
+    # for case_num in [1,]: 
+    #     print(f'\n______________CASE {case_num}_________________')
+    #     Path(DATA_DIR+f'/out/impSol/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
+    #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','impSol', f'case{case_num}_iniSol.log')):
+    #         pdpt_rasd(DATA_DIR, case_num, num_iteration = 1, verbose = 0)
 
     ConsoleLogger.stop()
 

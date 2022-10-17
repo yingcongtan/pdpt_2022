@@ -747,7 +747,7 @@ def gurobi_master_cycle(constant, selected_cargo,
     
     # if infeasible
     if MP.Status == 3:
-        print('\n********************** MP Infeasible Proved *********************\n')
+        print('********************** MP Infeasible *********************')
         return -1, runtime, [], [], [], [], [], [], [], -1, -1, -1
     
     runtime_MP = MP.Runtime
@@ -756,11 +756,11 @@ def gurobi_master_cycle(constant, selected_cargo,
     
     # if no objective value
     if float('inf') == obj_val_MP:
-        print('\n********************** MP Infeasible *********************\n')
+        print('********************** MP Infeasible *********************')
         return -1, runtime, [], [], [], [], [], [], [], -1, -1, -1
         
     
-    print('\n*********************** MP Feasible **********************\n')
+    print('*********************** MP Feasible **********************')
     print("The Gurobi obj value is %i" % obj_val_MP)
     print("The Gurobi runtime is %f" % runtime_MP)
     
@@ -910,7 +910,7 @@ def candidate_gen_removed_cargo(size_element, selected_cargo):
 
 def greedy_fix_MP(constant, selected_cargo, 
     created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-    selected_edge, selected_node, runtime, filename):
+    selected_edge, selected_node, runtime, filename, verbose = 0):
     
     """
     Greedy heuristic to remove a parcel
@@ -987,7 +987,7 @@ def greedy_fix_MP(constant, selected_cargo,
             cost_truck_value, cost_travel_value, cost_transfer_value = \
             gurobi_master_cycle(constant, selected_cargo, 
                 created_truck_yCycle, created_truck_nCycle, created_truck_all, 
-                selected_edge, selected_node, runtime, filename)
+                selected_edge, selected_node, runtime, filename, verbose)
 
             # if feasible, break
             if obj_val_MP > 0:
@@ -1424,11 +1424,13 @@ def cpo_sub(constant, selected_cargo,
     # This param is needed for running SP.solve() in linux environment:
     # execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer'
 
-    SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Verbose',
-                     execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
-    
+    SP_sol = SP.solve(TimeLimit = runtime, LogVerbosity = 'Quiet',
+                    #  execfile='/opt/ibm/ILOG/CPLEX_Studio201/cpoptimizer/bin/x86-64_linux/cpoptimizer')
+                     execfile='/opt/ibm/ILOG/CPLEX_Studio221/cpoptimizer/bin/x86-64_linux/cpoptimizer')
+
     feasibility_SP = SP_sol.get_solve_status()
 
+    
     SP_sol.write('/home/tan/Documents/cp_log.log')
     SP_sol.get_search_status()
 

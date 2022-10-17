@@ -422,19 +422,32 @@ def pdpt_rasd(dir_, case_num, num_iteration, seed=0, verbose = 0):
     pdpt_ini_sol_res_filename = os.path.join(dir_, 'out', 'iniSol', f'case{case_num}_iniSol.pkl')
 
     pdpt_ins = read_pickle(pdpt_ins_filename)
-    truck_list = pdpt_ins['truck']
+    # truck_list = pdpt_ins['truck']
 
     pdotw_sol = read_pickle(pdpt_ini_sol_res_filename)
+    cargo_route = pdotw_sol['route']['cargo_route']
     best_cost = sum([c_ for c_ in pdotw_sol['cost'].values()])
 
+    cargos_in_truck = {}
+    for truck_key in truck_list.keys():
+        cargos_in_truck[truck_key] = [ cargo_key  for cargo_key, c_route_ in cargo_route.items() if truck_key in [r_[0] for r_ in c_route_] ]
 
-    pdpt_sol = convert_pdotw_sol_to_pdpt_sol(pdpt_ins, pdotw_sol, verbose = verbose-2)
+    truck_key_list = np.array([[truck_key, len(values)] for truck_key, values in cargos_in_truck.items() if len(values)>0], dtype=object)
+
+    truck_key_list = truck_key_list[truck_key_list[:, 1].argsort()]  # sort by day
+
+    truck_list = {}
+    for truck_key in truck_key_list[:,0]:
+        truck_list[truck_key] = pdpt_ins['truck'][truck_key]
+
+    # pdpt_sol = convert_pdotw_sol_to_pdpt_sol(pdpt_ins, pdotw_sol, verbose = verbose-2)
     # best_cost = sum([c_ for c_ in pdpt_sol['cost'].values()])
 
     pdpt_sol={}
 
 
     # truck_pairs_to_try = unique_pair(list(truck_list.keys()), list(truck_list.keys()))
+
     truck_list_keys = list(truck_list.keys())
     truck_pairs_to_try = list(set([(truck_list_keys[i], truck_list_keys[j]) 
                                     for i in range(len(truck_list_keys)) 
@@ -442,6 +455,9 @@ def pdpt_rasd(dir_, case_num, num_iteration, seed=0, verbose = 0):
                                             if truck_list_keys[i] in pdotw_sol['route']['used_truck'] and truck_list_keys[j] in pdotw_sol['route']['used_truck']]))
     
     random.Random(seed).shuffle(truck_pairs_to_try)
+
+    random.Random(seed).shuffle(truck_list_keys)
+
     # print('unique pair of trucks to instantiate PDPT subproblems')
     selected_truck_pairs = []
     num_success_rasd_iter = 0

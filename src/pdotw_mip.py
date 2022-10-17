@@ -309,7 +309,6 @@ def pdotw_mip_gurobi(constant, y_sol_,
                 y[(truck_, cargo_)] = MP.addVar(vtype=GRB.BINARY)
 
     else:
-        makespan = MP.addVar(vtype=GRB.INTEGER, lb=0) #maximum slackness
         for truck_ in created_truck_all.keys():
             for cargo_ in selected_cargo.keys():
                 y[(truck_, cargo_)] = y_sol_[(truck_, cargo_)]
@@ -803,20 +802,14 @@ def pdotw_mip_gurobi(constant, y_sol_,
         callback=early_termination_callback
 
     else:
-        for truck_ in created_truck_all.keys():
-            for node_ in node_list_truck_hubs[truck_]:
-                MP.addConstr(  makespan >= D[(node_, truck_)]
-                            )
-        # cost_travel = quicksum(x[(node1, node2, truck_)] * 
-        #                     selected_edge[(node1, node2)] * 
-        #                     constant['truck_running_cost']
-        #                     for truck_ in created_truck_all.keys()
-        #                     for node1 in node_list_truck_hubs[truck_]
-        #                     for node2 in node_list_truck_hubs[truck_]
-        #                     if node1 != node2)
-        # MP.setObjective(cost_travel)
-        # MP.modelSense = GRB.MINIMIZE
-        MP.setObjective(makespan)
+        cost_travel = quicksum(x[(node1, node2, truck_)] * 
+                            selected_edge[(node1, node2)] * 
+                            constant['truck_running_cost']
+                            for truck_ in created_truck_all.keys()
+                            for node1 in node_list_truck_hubs[truck_]
+                            for node2 in node_list_truck_hubs[truck_]
+                            if node1 != node2)
+        MP.setObjective(cost_travel)
         MP.modelSense = GRB.MINIMIZE
         MP.Params.LogFile = filename[:-4]+'_reopt.log'
         callback=None

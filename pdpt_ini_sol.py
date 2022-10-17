@@ -1,4 +1,4 @@
-import sys
+import sys, os
 
 src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
 sys.path.insert(1, src_dir_)
@@ -62,24 +62,18 @@ def initialization_pdotw(ins, greedy_sorting_truck = False, seed = 0, verbose = 
         truck_route[t_key].append(t_value[0])
         lb_truck[t_key] = 0
 
-    selected_truck = {}
-    for t_key, t_value in truck.items():
-        selected_truck[t_key] = t_value
-    selected_cargo = {}
-    for c_key, c_value in cargo.items():
-        selected_cargo[c_key] = c_value
 
     if greedy_sorting_truck == False:
         if verbose > 0:
             print('Randomly shuffle truck list')
-        truck_keys_shuffle = list(selected_truck.keys())
+        truck_keys_shuffle = list(truck.keys())
         random.Random(seed).shuffle(truck_keys_shuffle)
 
     elif greedy_sorting_truck == True:
         if verbose > 0:
             print('Greedily sort trucks accoding to capacity')
                     #improve truck shuffle
-        capacity = np.array([ [k, v[-1]] for k, v in selected_truck.items()]).reshape(-1,2)
+        capacity = np.array([ [k, v[-1]] for k, v in truck.items()]).reshape(-1,2)
         idx = capacity[:, 1].argsort()
         capacity = capacity[idx[::-1], :]
         truck_key_sort_by_capacity = list(capacity[:,0])
@@ -93,7 +87,8 @@ def initialization_pdotw(ins, greedy_sorting_truck = False, seed = 0, verbose = 
             (truck_used_total, truck_route, cargo_delivered_total, cargo_undelivered_total, lb_truck, cargo_route, truck_per_cargo, cargo_in_truck)
     )
 
-    return res, truck_keys_shuffle, selected_truck, selected_cargo
+    return res, truck_keys_shuffle, truck, cargo
+
 
 # Here we solve multiple PDOTW MIP's to construct an intial solution for PDPT
 def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
@@ -125,14 +120,13 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
     runtime_pdotw = []
     for truck_key in truck_keys_shuffle:
         start_time = time.time()
-        if verbose >0:
-            print(f'========= START [PDOTW with truck {truck_key}] ========= ')
+        print(f'========= START [PDOTW with truck {truck_key}] ========= ')
 
-        tv = selected_truck[truck_key]
         
         created_truck = {}
+        created_truck[truck_key] = tuple(selected_truck[truck_key])
+
         node_list_truck_hubs = {}
-        created_truck[truck_key] = tv
         
         # nodes in the cluster
         # Note. cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time','departure_node', 'arrival_node']
@@ -144,10 +138,10 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                 selected_node.append(v[3])
             if v[4] not in selected_node:
                 selected_node.append(v[4])
-        if tv[0] not in selected_node:
-            selected_node.append(tv[0])
-        if tv[1] not in selected_node:
-            selected_node.append(tv[1])
+        if created_truck[truck_key][0] not in selected_node:
+            selected_node.append(created_truck[truck_key][0])
+        if created_truck[truck_key][1] not in selected_node:
+            selected_node.append(created_truck[truck_key][1])
         
         # edges in the cluster
         selected_edge = {}
@@ -216,10 +210,10 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         cost_cargo_size_value, cost_cargo_number_value, \
         cost_travel_value, cost_deviation_value\
         = pdotw_mip_gurobi(constant, None,   # note, by seting y_sol = None, we are solving PDOTW to maximize # of cargos we deliver
-        selected_cargo, single_truck_deviation,
-        created_truck_yCycle, created_truck_nCycle, created_truck_all,
-        node_list_truck_hubs, selected_edge, node_cargo_size_change,
-        100, gurobi_log_file, verbose = 1)
+                            selected_cargo, single_truck_deviation,
+                            created_truck_yCycle, created_truck_nCycle, created_truck_all,
+                            node_list_truck_hubs, selected_edge, node_cargo_size_change,
+                            100, gurobi_log_file, verbose = 1)
 
         # Index k for truck is pre-defined
         #x_sol: x^k_{ij}, if truck k visit edge (i,j) or not
@@ -231,16 +225,48 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
 
         ### if origin stage subproblem for the current truck is feasible
         if obj_val_MP >= 0:
+            delivered_cargo = {cargo_key: cargo[cargo_key] for truck_key, cargo_key in y_sol.keys()}
             
+            # nodes in the cluster
+            # Note. cargo['nb_cargo'] = ['size', 'lb_time', 'ub_time','departure_node', 'arrival_node']
+            # truck['nb_truck'] = ['departure_node', 'arrival_node', 'max_worktime', 'max_capacity']
+
+            selected_node = []
+            for v in delivered_cargo.values():
+                if v[3] not in selected_node:
+                    selected_node.append(v[3])
+                if v[4] not in selected_node:
+                    selected_node.append(v[4])
+            if created_truck[truck_key][0] not in selected_node:
+                selected_node.append(created_truck[truck_key][0])
+            if created_truck[truck_key][1] not in selected_node:
+                selected_node.append(created_truck[truck_key][1])
+
+            # edges in the cluster
+                selected_edge = {}
+                for i in selected_node:
+                    for j in selected_node:
+                        selected_edge[(i,j)] = edge_shortest[(i,j)]
+                
+                node_list_truck_hubs[truck_key] = selected_node.copy()
+                assert len(created_truck) == len(node_list_truck_hubs), "Inconsistent truck numbers"
+                node_cargo_size_change = \
+                generate_node_cargo_size_change(selected_node, delivered_cargo)
+
+                ### group cycle and non-cycle trucks
+                created_truck_yCycle, created_truck_nCycle, created_truck_all = \
+                group_cycle_truck(created_truck) 
+
             obj_val_MP, runtime_MP, \
             x_sol, _, y_sol, S_sol, D_sol, A_sol, \
             Sb_sol, Db_sol, Ab_sol, \
             cost_cargo_size_value, cost_cargo_number_value, \
             cost_travel_value, cost_deviation_value\
             = pdotw_mip_gurobi(constant, y_sol,   # note, by seting y_sol = y_sol, we are minimizing the travling distance of PDOTW solution
-            created_truck_yCycle, created_truck_nCycle, created_truck_all,
-            node_list_truck_hubs, selected_edge, node_cargo_size_change,
-            100, gurobi_log_file, verbose = 1)
+                                delivered_cargo, single_truck_deviation,
+                                created_truck_yCycle, created_truck_nCycle, created_truck_all,
+                                node_list_truck_hubs, selected_edge, node_cargo_size_change,
+                                100, gurobi_log_file, verbose = 1)
 
             if verbose >0:
                 print(f'+++ Postprocee Gurobi solution if a feasible solution is found')
@@ -298,7 +324,12 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         runtime_pdotw.append(time.time()-start_time)
         print(f'========= END [PDOTW with truck {truck_key}] ========= \n')
 
-    truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest, truck_used_total, truck_route)
+    # truck_cost, travel_cost = eval_pdotw_sol(constant, edge_shortest, truck_used_total, truck_route, 1)
+
+    travel_cost = sum([value for value in cost_travel_value_total.values()])
+    truck_cost = constant['truck_fixed_cost']*len(truck_used_total)
+
+
 
     res = {'MIP': {'x_sol': x_sol_total,
                    'y_sol': y_sol_total,
@@ -319,19 +350,24 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                     'travel_cost' : travel_cost,
                     },
           }
+    removed_cargo = list(selected_cargo.keys())
 
-    if verbose > 1:
-        print('+++ Summary of the initial solution')
-        print('\nThe final length of selected_cargo is:', len(selected_cargo))
-        removed_cargo = []
-        for c in selected_cargo.keys():
-            removed_cargo.append(c)
+    print('+++ Summary of the initial solution')
 
-        print(f'The truck_used_total: [{len(truck_used_total)}]')
-        print(truck_used_total)
+    print('    The truck_cost:', truck_cost)
+    print('    The travel cost:', travel_cost)
+    print('    The total cost:', truck_cost + travel_cost)
 
-        assert len(truck_used_total) <= len(truck) , \
-        "len(truck_used_total) > len(truck)"
+    print(f'    [{len(removed_cargo)}] undelivered cargo: {removed_cargo}')
+    print(f'    The total runtime: [{sum(runtime_pdotw)}]')
+
+    print(f'    The truck_used_total: [{len(truck_used_total)}]')
+    print(truck_used_total)
+
+    assert len(truck_used_total) <= len(truck) , \
+    "len(truck_used_total) > len(truck)"
+
+    if verbose > 0:
 
         print(f'The truck_route: [{len(truck_route)}]')
         for t, v in truck_route.items():
@@ -344,27 +380,21 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
         assert len(cargo) == len(cargo_route), "len(cargo) != len(cargo_route)"
 
         if verbose>2:
-            print(f'The cargo_delivered_total: [len(cargo_delivered_total)]')
+            print(f'    The cargo_delivered_total: [{len(cargo_delivered_total)}]')
             print([cargo_key for cargo_key in cargo_delivered_total.keys()])
             
-            print(f'The cargo_undelivered_total: [len(cargo_undelivered_total)]')
+            print(f'The cargo_undelivered_total: [{len(cargo_undelivered_total)}]')
             print([cargo_key for cargo_key in cargo_undelivered_total.keys()])
 
-            print(f'The truck_per_cargo: [len(truck_per_cargo)]')
+            print(f'The truck_per_cargo: [{len(truck_per_cargo)}]')
             for t, v in truck_per_cargo.items():
                 print(t, v)
-            assert len(truck_per_cargo) == len(cargo), \
-            "len(truck_per_cargo) != len(cargo)"
+            assert len(truck_per_cargo) == len(cargo), "len(truck_per_cargo) != len(cargo)"
 
-            print(f'The cargo_in_truck: [en(cargo_in_truck)]')
+            print(f'The cargo_in_truck: [{len(cargo_in_truck)}]')
             for t, v in cargo_in_truck.items():
                 print(t, v)
 
-        print(f'The removed_cargos: [{len(removed_cargo)}]')
-        print(removed_cargo)
-
-        
-        print(f'The total runtime: [{sum(runtime_pdotw)}]')
 
 
     return res
@@ -382,12 +412,14 @@ def pdpt_ini_sol(case_num, dir_, greedy_initialization, verbose = 0):
 
     if verbose > 0:
         print('=========== START CONSTRUCT INITIAL SOLUTION BY SOLVING MULTIPLE PDOTW PROBLEMS ===========')
-    Path(dir_+'/out/case'+ str(case_num) +'_gurobi').mkdir(parents=True, exist_ok=True)
 
-    path_ = dir_+'/out/case' + str(case_num) 
+    path_ = os.path.join(dir_,'out','iniSol') + f'/case{case_num}' 
+    Path(path_ +'_gurobi').mkdir(parents=True, exist_ok=True)
     res = solve_pdotw_mip(pdpt_ins, path_, greedy_initialization, verbose)
     if verbose >0: print('=========== END INITIAL SOLUTION  =========== \n')
     
-    filename = dir_+'/out/case' + str(case_num) +'_initSol.pkl'
+    filename = os.path.join(dir_,'out','iniSol')+f'/case{case_num}_iniSol.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(res, f)
+
+    

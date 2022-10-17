@@ -852,7 +852,7 @@ def gurobi_master_cycle(constant, selected_cargo,
             if node_ != selected_cargo[cargo_][3] and \
                node_ != selected_cargo[cargo_][4] and \
                u_sol[(node_, cargo_)] == 1:
-                print('u_sol is 1 with:', node_, cargo_)
+                # print('u_sol is 1 with:', node_, cargo_)
                 cost_transfer_value += u_sol[(node_, cargo_)] * \
                                         np.ceil(selected_cargo[cargo_][0] *
                                         constant['cargo_reloading_cost'])
@@ -1863,3 +1863,368 @@ def postprocess_pdpt_solution(subroutes, x_sol, s_sol, y_sol, z_sol, u_sol, verb
 
     return truck_used, cargo_delivered, cargo_undelivered, \
            trucks_per_cargo, cargo_in_truck, truck_route, cargo_route 
+
+
+
+def select_subroutes(ins, cargo_route_file, truck_pairs_to_try, seed=0, verbose=0):
+
+
+    # load data from ins
+    truck = ins['truck']
+    cargo = ins['cargo']
+    # edges = ins['edge']
+    # nodes = ins['nodes']
+    # constant = ins['constant']
+    # node_cargo_size_change = ins['node_cargo_size_change']
+    edge_shortest = ins['edge_shortest']
+    # path_shortest = ins['path_shortest']
+    # single_truck_deviation = ins['single_truck_deviation']
+    selected_truck = {}
+    selected_node = []
+    selected_edge = {}
+    selected_cargo = {}
+
+    cargo_to_truck_assignment = [{key: list(set([v[0] for v in value]))} for key, value in cargo_route_file.items()]
+
+    # print(cargo_to_truck_assignment)
+    
+    # for truck_key in truck_keys_shuffle[:2]:
+    for truck_key in truck_pairs_to_try:
+        if verbose >0:
+            print(f'========= START [PDOTW with truck {truck_key}] ========= ')
+
+        truck_value = truck[truck_key]
+
+        selected_truck[truck_key] = truck[truck_key]
+
+        cargo_keys = find_key(cargo_to_truck_assignment, truck_key)
+        if len(cargo_keys) > 0:
+            for c_key in cargo_keys: 
+                selected_cargo[c_key] = cargo[c_key]
+
+        if truck_value[0] not in selected_node:
+            selected_node.append(truck_value[0])
+        if truck_value[1] not in selected_node:
+            selected_node.append(truck_value[1])
+    # add undelivered cargos
+    for cargo_key, cargo_route in cargo_route_file.items():
+        if len(cargo_route) == 0:
+                selected_cargo[cargo_key] = cargo[cargo_key]
+
+
+    for v in selected_cargo.values():
+        if v[3] not in selected_node:
+            selected_node.append(v[3])
+        if v[4] not in selected_node:
+            selected_node.append(v[4])
+
+
+    edges_ = list(set([(i,j) for i in selected_node for j in selected_node]))
+
+    for i,j in edges_:
+        selected_edge[(i,j)] = edge_shortest[(i,j)]
+
+
+    return (selected_cargo, selected_truck, selected_node, selected_edge)
+
+
+def greedy_heuristic(constant, selected_cargo,
+    created_truck_yCycle, created_truck_nCycle, created_truck_all, 
+    selected_edge, selected_node,
+    truck_MP, truck_nodes, truck_nodes_index,
+    cargo_in, cargo_out,
+    transfer_nodes, cargo_unload, cargo_load):
+    
+    """
+    Greedy heuristic to remove a violated parcel
+    then evaluating feasibility of the SP
+    until SP is feasible
+    
+    Call CP evaluation function in this function.
+    This function is also commonly used!
+    
+    Return: 
+        removed_cargo: a minimal set of removed cargo
+        data related to feasible truck routes and 
+                        feasible cargo routes
+    """
+    
+    removed_cargo = []
+    
+#     print('\ncargo_unload:')
+#     for key, value in cargo_unload.items():
+#         print(key, value)
+        
+#     print('\ncargo_load:')
+#     for key, value in cargo_load.items():
+#         print(key, value)
+        
+    # try removing one cargo,
+    # if not feasible, try two, ...
+    feasibility_SP = ''
+    size_element = 0
+    while feasibility_SP != 'Feasible':
+        
+        # Update size_element
+        size_element += 1
+        
+        candidates = candidate_gen_removed_cargo(size_element, selected_cargo)
+        
+        # try each candidate
+        for candidate in candidates:
+            print('Evaluating removing', candidate, 'now..................')
+            
+            # the following four dicts store removed cargo
+            cargo_in_removed = {}
+            cargo_out_removed = {}
+            cargo_unload_removed = {}
+            cargo_load_removed = {}
+            
+            # Remove cargo from four lists of cargos
+            # These four lists all use [(node, truck)] as keys
+            for cargo_ in candidate:
+                # key: cargo, value: (node, truck)
+                cargo_in_removed[cargo_] = []
+                cargo_out_removed[cargo_] = []
+                cargo_unload_removed[cargo_] = []
+                cargo_load_removed[cargo_] = []
+                
+                for truck_ in truck_MP:
+                    for node_ in truck_nodes[truck_]:
+                        if cargo_ in cargo_in[(node_, truck_)]:
+                            cargo_in[(node_, truck_)].remove(cargo_)
+#                             print('remove {} from cargo_in[({},{})]'.format(cargo_, node_, truck_))
+                            if (node_, truck_) not in cargo_in_removed[cargo_]:
+                                cargo_in_removed[cargo_].append((node_, truck_))
+#                             print('Remove cargo', cargo, 'from cargo_in')
+                        if cargo_ in cargo_out[(node_, truck_)]:
+                            cargo_out[(node_, truck_)].remove(cargo_)
+#                             print('remove {} from cargo_out[({},{})]'.format(cargo_, node_, truck_))
+                            if (node_, truck_) not in cargo_out_removed[cargo_]:
+                                cargo_out_removed[cargo_].append((node_, truck_))
+#                             print('Remove cargo', cargo, 'from cargo_out')
+                        if cargo_ in cargo_unload[(node_, truck_)]:
+                            cargo_unload[(node_, truck_)].remove(cargo_)
+#                             print('remove {} from cargo_unload[({},{})]'.format(cargo_, node_, truck_))
+                            if (node_, truck_) not in cargo_unload_removed[cargo_]:
+                                cargo_unload_removed[cargo_].append((node_, truck_))
+#                             print('Remove cargo', cargo, 'from cargo_unload')
+                        if cargo_ in cargo_load[(node_, truck_)]:
+                            cargo_load[(node_, truck_)].remove(cargo_)
+#                             print('remove {} from cargo_load[({},{})]'.format(cargo_, node_, truck_))
+                            if (node_, truck_) not in cargo_load_removed[cargo_]:
+                                cargo_load_removed[cargo_].append((node_, truck_))
+#                             print('Remove cargo', cargo, 'from cargo_load')
+            
+            # the following two data store removed node
+            truck_nodes_removed = [] # element: (truck, node, index)
+            selected_cargo_removed = {} # key:cargo, value: selected_cargo[cargo] 
+            
+            # Remove node from truck_nodes[truck] 
+            # if cargo_unload[(node, truck)] and 
+            # cargo_load[(node, truck)] are empty
+            # and the node is not the origin or destination of the truck
+            for truck_ in truck_MP:
+                for node_ in truck_nodes[truck_]:
+                    if node_ != created_truck_all[truck_][0] and \
+                       node_ != created_truck_all[truck_][1] and \
+                       cargo_unload[(node_, truck_)] == [] and \
+                       cargo_load[(node_, truck_)] == []:
+                        index = truck_nodes[truck_].index(node_)
+                        truck_nodes[truck_].remove(node_)
+#                         print('cargo_unload[({}, {})]'.format(node_, truck_), cargo_unload[(node_, truck_)])
+#                         print('cargo_load[({}, {})]'.format(node_, truck_), cargo_load[(node_, truck_)])
+                        print('node {} is removed from truck {}!'.format(node_, truck_))
+                        truck_nodes_removed.append((truck_, node_, index))
+#                         print('Remove node', node, 
+#                               'from visited nodes of truck', truck)
+                        del truck_nodes_index[truck_][node_]
+                        # cargo_in[(node, truck)] == [] and\
+                        # cargo_out[(node, truck)] == [] and\
+            
+            
+            # Delete cargo from selected_cargo
+            for cargo_ in candidate:
+                selected_cargo_removed[cargo_] = selected_cargo[cargo_]
+                del selected_cargo[cargo_]   
+#                 print('Remove cargo', cargo, 'from selected_cargo')
+
+            # Modify truck_nodes_index
+            for truck_ in truck_MP:
+                for index in range(len(truck_nodes[truck_])):
+                    node_ = truck_nodes[truck_][index]
+                    if node_ != created_truck_all[truck_][0]:
+                        truck_nodes_index[truck_][node_] = index
+                if truck_ in created_truck_nCycle.keys():
+                    assert len(truck_nodes_index[truck_]) == len(truck_nodes[truck_])
+            
+            # print selected_cargo
+#             for key, value in selected_cargo.items():
+#                 print(key, value)
+            
+            # call CPO to solve the satisfaction SP
+            runtime = 10
+            feasibility_SP, g_sol, h_sol, D_sol = \
+            cpo_sub(constant, selected_cargo,
+                created_truck_yCycle, created_truck_nCycle, created_truck_all,  
+                selected_edge, selected_node,
+                truck_MP, truck_nodes, truck_nodes_index, cargo_in, cargo_out,
+                transfer_nodes, cargo_unload, cargo_load,
+                runtime)
+
+            # if feasible, break
+            if feasibility_SP == 'Feasible':
+                removed_cargo = candidate
+                print('******Removing cargo', candidate, 'makes SP feasible******')
+                
+                if time_checker_cluster(constant, selected_cargo, created_truck_all, 
+                                    selected_edge, truck_MP, truck_nodes, 
+                                    cargo_unload, cargo_load, g_sol, h_sol, D_sol):
+                    print('\nThe time constraint of the current cluster is satisfied!')
+                else:
+                    sys.exit()
+                
+                break
+
+            # KEY RECOVER COMPONENT!
+            # recover all the data to the states before removal
+
+            for cargo_ in candidate:
+                # selected_cargo
+                selected_cargo[cargo_] = selected_cargo_removed[cargo_]
+
+                # cargo_in, cargo_out, cargo_unload, cargo_load
+                # key: cargo, value: (node, truck)
+                for pair in cargo_in_removed[cargo_]:
+                    cargo_in[pair].append(cargo_)
+                for pair in cargo_out_removed[cargo_]:
+                    cargo_out[pair].append(cargo_)
+                for pair in cargo_unload_removed[cargo_]:
+                    cargo_unload[pair].append(cargo_)
+                for pair in cargo_load_removed[cargo_]:
+                    cargo_load[pair].append(cargo_)
+
+            # truck_nodes
+            for triplet in truck_nodes_removed:
+                truck_nodes[triplet[0]].insert(triplet[2], triplet[1])
+
+            # truck_nodes_index
+            # Modify truck_nodes_index
+            for truck_ in truck_MP:
+                for index in range(len(truck_nodes[truck_])):
+                    node_ = truck_nodes[truck_][index]
+                    if node_ != created_truck_all[truck_][0]:
+                        truck_nodes_index[truck_][node_] = index
+                if truck_ in created_truck_nCycle.keys():
+                    assert len(truck_nodes_index[truck_]) == len(truck_nodes[truck_])
+    
+    
+    return removed_cargo, \
+           truck_MP, truck_nodes, truck_nodes_index, \
+           cargo_in, cargo_out, \
+           transfer_nodes, cargo_unload, cargo_load
+
+def time_checker_cluster(constant, selected_cargo, created_truck, 
+    selected_edge, truck_MP, truck_nodes, 
+    cargo_unload, cargo_load, g_sol, h_sol, D_sol):
+    
+    """
+    Check all time-related constriants for trucks and cargo in a SP solution
+    """
+    
+    ### For all trucks
+    for t in truck_MP:
+        
+        # the origin of the truck t
+        n1 = truck_nodes[t][0]
+        n2 = truck_nodes[t][1]
+        
+        time_t = D_sol[(n1, n2, t)]
+        if time_t < 0:
+            print('Initial time of truck {} is wrong'.format(t))
+            return False
+        
+        for c in cargo_load[(n1, t)]:
+            if True or selected_cargo[c][3] == n1:
+                if selected_cargo[c][1] > time_t:
+                    print('cargo lower bound of {} at {} on {} is wrong'.format(c, n1, t))
+                    print('selected_cargo[c][1]:', selected_cargo[c][1], 'time_t:', time_t)
+                    return False
+        time_origin = time_t
+        time_t += selected_edge[(n1, n2)]
+        
+        
+        # the middle nodes of the truck t
+        if len(truck_nodes[t]) > 2:
+            for i in range(1, len(truck_nodes[t])-1):
+                n1 = truck_nodes[t][i]
+                n2 = truck_nodes[t][i+1]
+
+                for c in cargo_unload[(n1, t)]:
+                    if True or selected_cargo[c][4] == n1:
+                        if time_t > selected_cargo[c][2]:
+                            print('The cargo upper bound of {} at {} on {} is wrong'.format(c, n1, t))
+                            print('time_t:', time_t, 'selected_cargo[c][2]:', selected_cargo[c][2], )
+                            return False
+
+                time_t += constant['node_fixed_time']
+                for c in cargo_unload[(n1, t)]:
+                    time_t += int(np.ceil(selected_cargo[c][0] * constant['loading_variation_coefficient']))
+                for c in cargo_load[(n1, t)]:
+                    time_t += int(np.ceil(selected_cargo[c][0] * constant['loading_variation_coefficient']))
+
+                if time_t > D_sol[(n1, n2, t)]:
+                    print('The time of edge from {} to {} on {} is wrong'.format(n1, n2, t))
+                    print('time_t:', time_t, 'D_sol[(n1, n2, t)]', D_sol[(n1, n2, t)])
+                    return False
+                for c in cargo_load[(n1, t)]:
+                    if True or selected_cargo[c][3] == n1:
+                        if max(time_t, D_sol[(n1, n2, t)]) < selected_cargo[c][1]:
+                            print('The cargo lower bound of {} at {} on {} is wrong'.format(c, n1, t))
+                            print('max(time_t, D_sol[(n1, n2, t)]):', max(time_t, D_sol[(n1, n2, t)]))
+                            print('time_t:', time_t, 'D_sol[(n1, n2, t)]:', D_sol[(n1, n2, t)])
+                            print('selected_cargo[c][1]:', selected_cargo[c][1])
+                            return False
+                time_t = max(time_t, D_sol[(n1, n2, t)])
+
+                time_t += selected_edge[(n1, n2)]
+        
+        # the destination of truck t
+        n1 = truck_nodes[t][-1]
+        n2 = 'dummy'
+        
+        for c in cargo_unload[(n1, t)]:
+            if True or selected_cargo[c][4] == n1:
+                if time_t > selected_cargo[c][2]:
+                    print('The cargo upper bound of {} at {} on {} is wrong'.format(c, n1, t))
+                    print('time_t:', time_t, 'selected_cargo[c][2]', selected_cargo[c][2])
+                    return False
+        
+        time_t += constant['node_fixed_time']
+        for c in cargo_unload[(n1, t)]:
+            time_t += int(np.ceil(selected_cargo[c][0] * constant['loading_variation_coefficient']))
+
+        if time_t > D_sol[(n1, n2, t)]:
+            print('The time of edge from {} to {} on {} is wrong'.format(n1, n2, t))
+            print('time_t:', time_t, 'D_sol[(n1, n2, t)]:', D_sol[(n1, n2, t)])
+            return False
+        if time_t - time_origin > created_truck[t][2]:
+            print('The truck max worktime of {} is wrong'.format(t))
+            print('time_t - time_origin:', time_t - time_origin, 'created_truck[t][2]', created_truck[t][2])
+            return False
+    
+    ### For cargo and transfers
+    for key, value in cargo_unload.keys():
+        n = key[0]
+        t1 = key[1]
+        for c in value:
+            for t2 in created_truck.keys():
+                if t2 != t1:
+                    if (n, t2) in cargo_load.keys() and c in cargo_load[(n, t2)]:
+                        if g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[cargo_][0])) > h_sol[(n, c)]:
+                            print('The transfer time at {} of {} between {} and {} is wrong'.format(n, c, t1, t2))
+                            print('long one:', g_sol[(n, c)] + int(np.ceil(constant['loading_variation_coefficient'] * selected_cargo[cargo_][0])))
+                            print('h_sol[(n, c)]', h_sol[(n, c)])
+                            return False    
+    
+    return True

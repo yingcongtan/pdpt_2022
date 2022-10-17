@@ -1,8 +1,11 @@
-import os
+import sys, os
 
-from src.pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, postprocess_pdpt_solution
-from src.util import read_pickle, group_cycle_truck, manual_stop
-from pdpt_repair import unique_pair
+src_dir_ = '/home/tan/Documents/GitHub/pdpt_2022/src'
+sys.path.insert(1, src_dir_)
+
+from pdpt_route_schedule import gurobi_master_cycle, greedy_fix_MP, MP_to_SP, cpo_sub, greedy_heuristic, time_checker_cluster, calculate_SP_cost, postprocess_pdpt_solution
+from util import read_pickle, group_cycle_truck, manual_stop
+from pdpt_best_insertion import unique_pair
 import numpy as np
 import random, sys, time
 import pickle
@@ -416,7 +419,7 @@ def pdpt_rasd(dir_, case_num, num_iteration, seed=0, verbose = 0):
     max_iter = 10
 
     pdpt_ins_filename = os.path.join(dir_, f'data/case{case_num}.pkl')
-    pdpt_ini_sol_res_filename = os.path.join(dir_, f'out/case{case_num}_initSol.pkl')
+    pdpt_ini_sol_res_filename = os.path.join(dir_, 'out', 'iniSol', f'case{case_num}_iniSol.pkl')
 
     pdpt_ins = read_pickle(pdpt_ins_filename)
     truck_list = pdpt_ins['truck']

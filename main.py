@@ -1,8 +1,9 @@
 
-import os, pickle
+import os, time
+import pickle
 from src.util import read_pdpt_csv_to_pickle, ConsoleLogger
 from pdpt_ini_sol import pdpt_ini_sol
-# from pdpt_repari import best_insertion
+from pdpt_repair import pdpt_sol_repair
 from pdpt_rasd import pdpt_rasd
 from pathlib import Path
 
@@ -13,16 +14,19 @@ parser.add_argument('--verbose', type=int, default=0, help='flag for printing' +
                                                             '0 - dont print logs' +\
                                                             '>0 - print details of each instance')
 parser.add_argument('--datadir', type=str, default='/home/tan/Documents/GitHub/pdpt_2022', help='Directory of PDPT data files')
+parser.add_argument('--timelimit', type=int, default=1800, help='Total runtime limit')
 
 args = parser.parse_args()
 
 DATA_DIR = args.datadir
 VERBOSE = args.verbose
+RUNTIME_LIMIT = args.timelimit
 
 os.environ['DATA_DIR'] = args.datadir
 
 def main():
     greedy_initialization = False
+    remaining_time = RUNTIME_LIMIT
 
     assert os.path.isdir(DATA_DIR+'/data'), f'Can find data files in {DATA_DIR}/data'
 
@@ -38,15 +42,29 @@ def main():
     #         read_pdpt_csv_to_pickle(case_num, DATA_DIR+'/data', verbose = VERBOSE-1)
 
     # for case_num in (range(1,6,1)):
-    for case_num in [1,]: 
-        print(f'\n______________CASE {case_num}_________________')
-        Path(DATA_DIR+f'/out/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
-        with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_initSol.log')):
-            # construct initial solutions by solving multiple PDOTW 
-            pdpt_ini_sol(case_num, DATA_DIR, greedy_initialization, verbose = VERBOSE)
+    # for case_num in [1,]: 
+    #     curr_time = time.time()
+    #     print(f'\n______________CASE {case_num}_________________')
+    #     Path(DATA_DIR+f'/out/iniSol/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
+    #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','iniSol', f'case{case_num}_iniSol.log')):
+    #         # construct initial solutions by solving multiple PDOTW 
+    #         pdpt_ini_sol(case_num, DATA_DIR, greedy_initialization, verbose = VERBOSE)
+    #     remaining_time -= time.time()-curr_time
+    #     curr_time = time.time()
+    
+    #     if remaining_time<0:
+    #         print('===== reach runtime limit, exit')
+    #         return None
 
     # repair initial solution through a best_insertion heuristic
-    # new_sol = best_insertion(ini_sol)
+    # for case_num in [1,]: 
+    #     curr_time = time.time()
+    #     print(f'\n______________CASE {case_num}_________________')
+    #     Path(os.path.join(DATA_DIR, 'out', 'repSol')).mkdir(parents=True, exist_ok=True)
+    #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','repSol', f'case{case_num}_repSol.log')):
+    #         # construct initial solutions by solving multiple PDOTW 
+    #         pdpt_sol_repair(case_num, DATA_DIR, verbose = VERBOSE)
+
 
     # # improve solution through random adaptive saptial decoupling
     # # note, in RASD, each sub-problem is solved using route+schedule decomposition framework (see route_scheudle_decomp.py )
@@ -56,14 +74,12 @@ def main():
 
 
     # for case_num in (range(1,6,1)):
-    # # for case_num in [1,]: 
-    #     with ConsoleLogger.copy_to(os.path.join(DATA_DIR+'/out', f'case{case_num}_rasd.log')):
-    #         pdpt_rasd(DATA_DIR, case_num, num_iteration = 1, verbose = 0)
+    for case_num in [1,]: 
+        print(f'\n______________CASE {case_num}_________________')
+        Path(DATA_DIR+f'/out/impSol/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)
+        with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','impSol', f'case{case_num}_iniSol.log')):
+            pdpt_rasd(DATA_DIR, case_num, num_iteration = 1, verbose = 0)
 
-    # pdpt_sol_res_filename  = os.path.join(DATA_DIR, f'out/case{case_num}_finalSol.pkl')
-
-    # with open(pdpt_sol_res_filename, 'wb') as f:
-    #     pickle.dump(pdpt_sol, f)
     ConsoleLogger.stop()
 
 

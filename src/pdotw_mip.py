@@ -268,27 +268,9 @@ def pdotw_mip_gurobi(constant, y_sol_,
                 # If so, update incumbent and time
                 model._cur_obj = obj
                 model._time = time.time()
-
-        if where == GRB.Callback.MIPSOL:
-            # Get model objective
-            obj = model.cbGet(GRB.Callback.MIPSOL_OBJBST)
-            # Has objective changed?
-            if abs(obj - model._cur_obj) > 1e-8:
-                # If so, update incumbent and time
-                model._no_improve_iter = 0
-                model._cur_obj = obj
-            else:
-                model._no_improve_iter += 1
-
-
         # Terminate if objective has not improved in 20s
         if time.time() - model._time > 20:
             MP._termination_flag = 1
-            model.terminate()
-
-        if model._no_improve_iter > 50:
-
-            MP._termination_flag = 2
             model.terminate()
 
     
@@ -320,13 +302,14 @@ def pdotw_mip_gurobi(constant, y_sol_,
     
     # binary variables y
     # ==1 if cargo_ is carried by truck_
+    y={}
     if y_sol_ is None:
-        y = {}
         for truck_ in created_truck_all.keys():
             for cargo_ in selected_cargo.keys():
                 y[(truck_, cargo_)] = MP.addVar(vtype=GRB.BINARY)
 
     else:
+        makespan = MP.addVar(vtype=GRB.INTEGER, lb=0) #maximum slackness
         for truck_ in created_truck_all.keys():
             for cargo_ in selected_cargo.keys():
                 y[(truck_, cargo_)] = y_sol_[(truck_, cargo_)]
@@ -820,67 +803,50 @@ def pdotw_mip_gurobi(constant, y_sol_,
         callback=early_termination_callback
 
     else:
-
-        cost_travel = quicksum(x[(node1, node2, truck_)] * 
-                            selected_edge[(node1, node2)] * 
-                            constant['truck_running_cost']
-                            for truck_ in created_truck_all.keys()
-                            for node1 in node_list_truck_hubs[truck_]
-                            for node2 in node_list_truck_hubs[truck_]
-                            if node1 != node2)
-        MP.setObjective(cost_travel)
+        for truck_ in created_truck_all.keys():
+            for node_ in node_list_truck_hubs[truck_]:
+                MP.addConstr(  makespan >= D[(node_, truck_)]
+                            )
+        # cost_travel = quicksum(x[(node1, node2, truck_)] * 
+        #                     selected_edge[(node1, node2)] * 
+        #                     constant['truck_running_cost']
+        #                     for truck_ in created_truck_all.keys()
+        #                     for node1 in node_list_truck_hubs[truck_]
+        #                     for node2 in node_list_truck_hubs[truck_]
+        #                     if node1 != node2)
+        # MP.setObjective(cost_travel)
+        # MP.modelSense = GRB.MINIMIZE
+        MP.setObjective(makespan)
         MP.modelSense = GRB.MINIMIZE
-        MP.Params.LogFile = filename[:-3]+'_reopt.log'
+        MP.Params.LogFile = filename[:-4]+'_reopt.log'
         callback=None
-
-    # # traveling cost: proportional to total travel time
-    # cost_travel = quicksum(x[(node1, node2, truck_)] * 
-    #                        selected_edge[(node1, node2)] * 
-    #                        constant['truck_running_cost']
-    #                        for truck_ in created_truck_all.keys()
-    #                        for node1 in node_list_truck_hubs[truck_]
-    #                        for node2 in node_list_truck_hubs[truck_]
-    #                        if node1 != node2)
-    
-    # # deviation cost: proportional to total deviation of cargo carried by the only truck
-    # # we don't include it in the objective
-    # # ask Oksana about how to compute a deviation for a cargo and a truck
-    # cost_deviation = quicksum(y[truck_, cargo_] * 1 *
-    #                           single_truck_deviation[(cargo_, truck_)] *
-    #                           constant['truck_running_cost']
-    #                           for truck_ in created_truck_all.keys()
-    #                           for cargo_ in selected_cargo.keys())
-    
     
     ###### Integrate the model and optimize ######
 
     # private parameters to help with callback function
+    MP.Params.LogToConsole  = 0
     MP._cur_obj = float('inf')
     MP._time = time.time()
     MP._no_improve_iter = 0
     MP._termination_flag = 0
 
-    # MP.setObjective(cost_cargo_size + cost_cargo_number)
-    # MP.modelSense = GRB.MAXIMIZE
     MP.Params.timeLimit = runtime
     MP.Params.OutputFlag = 1
-    MP.Params.LogFile = filename
-    MP.Params.LogToConsole  = 0
     MP.update()
 
     if callback is None:
         MP.optimize()
     else:
+        if verbose >0:
+            print('Use soft-termination through callback, terminate if no better solution in 20 s')
         MP.optimize(callback=callback)
-
-    MP.optimize()
-
 
     # if infeasible
     if MP.Status == 3:
         if verbose >0: print('+++ MIP [Infeasible Proved] ')
         return -1, runtime, [], [], [], [], [], [], [], [], [], -1, -1, -1, -1
     
+    print(MP.Status)
     runtime_MP = MP.Runtime
     obj_val_MP = MP.objVal
 
@@ -892,13 +858,14 @@ def pdotw_mip_gurobi(constant, y_sol_,
         
     
     if verbose > 0:
-        print('+++ MP [Feasible] ')
+        print(f'+++ {MP.ModelName} [Feasible] ')
         if MP._termination_flag == 1:
-            print('soft termination: failed to improve best solution for 20s.')
+            print('    soft termination: failed to improve best solution for 20s.')
         elif MP._termination_flag == 2:
-            print('soft termination: failed to improve obj for 50 consecutive feasible solutions.')
-        print("   [Gurobi obj value] is %i" % obj_val_MP)
-        print("   [Gurobi runtime] is %f" % runtime_MP)
+            print('    soft termination: failed to improve obj for 50 consecutive feasible solutions.') 
+        if verbose > 1:
+            print("   [Gurobi obj value] is %i" % obj_val_MP)
+            print("   [Gurobi runtime] is %f" % runtime_MP)
     
     
     

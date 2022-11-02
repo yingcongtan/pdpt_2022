@@ -26,8 +26,6 @@ def generate_random_ins(dir_, case_num, num_trucks, num_ins):
 
     def generate_ins_based_on_truck_list(pdpt_ins, selected_truck_list, cargos_in_truck):
 
-
-        constant = pdpt_ins['constant']
         edge_shortest = pdpt_ins['edge_shortest']
         coor = pdpt_ins['coordinate']
 
@@ -36,18 +34,25 @@ def generate_random_ins(dir_, case_num, num_trucks, num_ins):
 
         for truck_key, truck_value in selected_truck_list.items():
             t_o, t_d = truck_value[:2]
+            if t_o not in selected_node_list:
+                    selected_node_list.append(t_o)
+            if t_d not in selected_node_list:
+                selected_node_list.append(t_d)
+            # print(t_o, t_d)
+            # print(truck_value)
             for cargo_key in cargos_in_truck[truck_key]:
                 assert cargo_key not in list(selected_cargo_list.keys())
                 selected_cargo_list[cargo_key] = pdpt_ins['cargo'][cargo_key]
+                # print(selected_cargo_list[cargo_key] )
                 c_o, c_d = selected_cargo_list[cargo_key][3:]
-                if  c_d not in selected_cargo_list:
+
+                # print(c_o, c_d)
+                # manual_stop()
+                if  c_o not in selected_node_list:
                     selected_node_list.append(c_o)
-                if c_d not in selected_cargo_list:
+                if c_d not in selected_node_list:
                     selected_node_list.append(c_d)
-            if t_o not in selected_cargo_list:
-                    selected_node_list.append(t_o)
-            if t_d not in selected_cargo_list:
-                selected_node_list.append(t_d)
+
 
         selected_edge_list = {}
         selected_node_coor_list = {}
@@ -89,47 +94,46 @@ def generate_random_ins(dir_, case_num, num_trucks, num_ins):
     pdpt_ins_filename = os.path.join(dir_, f'data/case{case_num}.pkl')
     pdpt_ins = read_pickle(pdpt_ins_filename)
     truck_list = pdpt_ins['truck']
-    cargo_list = pdpt_ins['cargo']
-
 
     pdotw_sol_res_filename = os.path.join(dir_, 'out', 'iniSol', f'case{case_num}_iniSol.pkl')
     pdotw_sol = read_pickle(pdotw_sol_res_filename)
-    best_cost = sum([c_ for c_ in pdotw_sol['cost'].values()])
-    cargo_route = pdotw_sol['route']['cargo_route']
 
     y_sol = pdotw_sol['MIP']['y_sol']
 
     for i in range(num_ins):
-
-        cargos_in_truck = {}
-
-        for truck_key in pdotw_sol['route']['used_truck']:
-            # cargos_in_truck[truck_key] = [ cargo_key  for cargo_key, c_route_ in cargo_route.items() if truck_key in [r_[0] for r_ in c_route_] ] # equivalent to the line below
-            cargos_in_truck[truck_key] = [ keys[-1]  for keys, values in y_sol.items() if truck_key in keys and values ==1  ]
-            # assert cargos_in_truck[truck_key].sort() == cargos_in_truck_[truck_key].sort()
-
-            # print(f'truck_key, \n   cargos_in_truck[truck_key] :{cargos_in_truck[truck_key]}\n   cargos_in_truck_[truck_key]: {cargos_in_truck_[truck_key]}')
-
-        selected_truck_key_list = random.sample(list(cargos_in_truck.keys()), num_trucks)
-        print(f'     Selected trucks for new instances {selected_truck_key_list}')
-        # print(cargos_in_truck.keys())
-
-        selected_truck_list = {truck_key: truck_list[truck_key] for truck_key in selected_truck_key_list}
-
-        ins = generate_ins_based_on_truck_list(pdpt_ins, selected_truck_list, cargos_in_truck)
-
-
         path_ = os.path.join(dir_, f'data/case{case_num}', f'case{case_num}_truck{num_trucks}_ins{i+1}.pkl')
-        with open(path_, 'wb') as pickle_file:
-            pickle.dump(ins, pickle_file)
+        if not os.path.isfile(path_):
+            cargos_in_truck = {}
+
+            for truck_key in pdotw_sol['route']['used_truck']:
+                # cargos_in_truck[truck_key] = [ cargo_key  for cargo_key, c_route_ in cargo_route.items() if truck_key in [r_[0] for r_ in c_route_] ] # equivalent to the line below
+                cargos_in_truck[truck_key] = [ keys[-1]  for keys, values in y_sol.items() if truck_key in keys and values ==1  ]
+                # assert cargos_in_truck[truck_key].sort() == cargos_in_truck_[truck_key].sort()
+                # print(f'truck_key, \n   cargos_in_truck[truck_key] :{cargos_in_truck[truck_key]}\n   cargos_in_truck_[truck_key]: {cargos_in_truck_[truck_key]}')
+
+            selected_truck_key_list = random.sample(list(cargos_in_truck.keys()), num_trucks)
+
+            print(f'     Selected trucks for new instances {selected_truck_key_list}')
+            # print(cargos_in_truck.keys())
+
+            selected_truck_list = {truck_key: truck_list[truck_key] for truck_key in selected_truck_key_list}
+
+            ins = generate_ins_based_on_truck_list(pdpt_ins, selected_truck_list, cargos_in_truck)
+
+
+            path_ = os.path.join(dir_, f'data/case{case_num}', f'case{case_num}_truck{num_trucks}_ins{i+1}.pkl')
+            with open(path_, 'wb') as pickle_file:
+                pickle.dump(ins, pickle_file)
+        else:
+            print('+++ path_ realy exist')
 
 
 
 def main():
     for case_num in range(1,6,1):
-        for num_trucks in [5,10]:
+        for num_trucks in [2, 3, 5]:
             print(f'+++ Generate new instance using data from case {case_num} with {num_trucks} trucks')
-
+            
             generate_random_ins(dir_, case_num, num_trucks, num_ins)
 
 

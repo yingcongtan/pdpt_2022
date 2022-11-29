@@ -117,14 +117,22 @@ def tvopdpt_milp_gurobi(constant,
     truck_1, truck_2 = selected_truck.keys()
 
     # constraints related to transfer variables
-    # sum_i u^r_i <=1, sum_i w^r_i <=1
+
+    # sum_i u^r_i  + sum_i w^r_i <=1, each cargo can be tranfers at most once
     for cargo_key in selected_cargo.keys():
         MP.addConstr(
-            quicksum(u[(node_, cargo_key)] for node_ in selected_node) <= 1
+            quicksum(w[(node_, cargo_key)] for node_ in selected_node) + quicksum(u[(node_, cargo_key)] for node_ in selected_node)  <= 1
         )
-        MP.addConstr(
-            quicksum(w[(node_, cargo_key)] for node_ in selected_node) <= 1
-        )
+
+
+    # # sum_i u^r_i <=1, sum_i w^r_i <=1
+    # for cargo_key in selected_cargo.keys():
+    #     MP.addConstr(
+    #         quicksum(u[(node_, cargo_key)] for node_ in selected_node) <= 1
+    #     )
+    #     MP.addConstr(
+    #         quicksum(w[(node_, cargo_key)] for node_ in selected_node) <= 1
+    #     )
     
     for cargo_key, cargo_value in selected_cargo.items():
         cargo_origin, cargo_destination = cargo_value[-2], cargo_value[-1]
@@ -139,10 +147,10 @@ def tvopdpt_milp_gurobi(constant,
         MP.addConstr(w[(selected_truck[truck_2][0], cargo_key)] == 0)  # do not tranfer cargo at truck's origin
         MP.addConstr(w[(selected_truck[truck_1][1], cargo_key)] == 0)  # do not receive cargo at truck's destination
 
-    # u[(node_, cargo_)] + w[(node_, cargo_)] <=1
-    for cargo_key in selected_cargo.keys():
-        for node_ in selected_node:
-            w[(node_, cargo_key)] + u[(node_, cargo_key)] <= 1 
+    # # u[(node_, cargo_)] + w[(node_, cargo_)] <=1
+    # for cargo_key in selected_cargo.keys():
+    #     for node_ in selected_node:
+    #         w[(node_, cargo_key)] + u[(node_, cargo_key)] <= 1 
 
     for cargo_key, cargo_value in selected_cargo.items():
         cargo_origin, cargo_destination = cargo_value[-2], cargo_value[-1]
@@ -456,7 +464,7 @@ def tvopdpt_milp_gurobi(constant,
             S[(origin_truck, truck_key)] == 
             quicksum(z[(origin_truck, node_next, truck_key, cargo_key)] * \
                      node_cargo_size_change[(origin_truck, cargo_key)]
-                     for node_next in selected_node
+                     for node_next in selected_node if node_next != origin_truck
                      for cargo_key, cargo_value in selected_cargo.items()
                      if cargo_value[3] == origin_truck)
         )
@@ -549,15 +557,15 @@ def tvopdpt_milp_gurobi(constant,
                      <= D[(node_curr, truck_key)]
                     )  
             else: # if truck is a non-cycle truck
-                if node_curr == created_truck_yCycle[truck_key][1]: # if node_ is truck destination
+                if node_curr == selected_truck[truck_key][1]: # if node_ is truck destination
                     #at^k_i + fix + sum_{j in V, r in R: i==r_dest} z^{kr}_{ji} * r_size * unit_load_time
                     #             + sum_{r in R} (u^r_i + w^r_i ) * r_size * unit_load_time
                     # <= dt^k_i
                     MP.addConstr(
                         A[(node_curr, truck_key)] + constant['node_fixed_time'] +
-                        quicksum(z[(nod_prev, node_curr, truck_key, cargo_key)] * 
+                        quicksum(z[(node_prev, node_curr, truck_key, cargo_key)] * 
                                     int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
-                                    for nod_prev in selected_node
+                                    for node_prev in selected_node if node_prev != node_curr
                                     for cargo_key, cargo_value in selected_cargo.items()
                                     if node_curr == cargo_value[4]
                                 )
@@ -567,7 +575,7 @@ def tvopdpt_milp_gurobi(constant,
                                 )
                      <= D[(node_curr, truck_key)]
                     )      
-                elif node_curr == created_truck_yCycle[truck_key][0]: # if node_ is truck origin
+                elif node_curr == selected_truck[truck_key][0]: # if node_ is truck origin
                     #at^k_i + fix + sum_{j in V, r in R: i==r_origin} z^{kr}_{ij} * r_size * unit_load_time
                     #             + sum_{r in R} (u^r_i + w^r_i ) * r_size * unit_load_time
                     # <= dt^k_i
@@ -575,7 +583,7 @@ def tvopdpt_milp_gurobi(constant,
                         A[(node_curr, truck_key)] + constant['node_fixed_time'] +
                         quicksum(z[(node_curr, node_next, truck_key, cargo_key)] * 
                                     int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
-                                    for node_next in selected_node
+                                    for node_next in selected_node if node_next != node_curr
                                     for cargo_key, cargo_value in selected_cargo.items()
                                     if node_curr == cargo_value[3]
                                 )
@@ -594,13 +602,13 @@ def tvopdpt_milp_gurobi(constant,
                         A[(node_curr, truck_key)] + constant['node_fixed_time']
                       + quicksum(z[(node_curr, node_next, truck_key, cargo_key)] * 
                                     int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
-                                    for node_next in selected_node
+                                    for node_next in selected_node if node_next != node_curr
                                     for cargo_key, cargo_value in selected_cargo.items()
                                     if node_curr == cargo_value[3]
                                 )
                       + quicksum(z[(node_prev, node_curr, truck_key, cargo_key)] * 
                                     int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
-                                    for node_prev in selected_node
+                                    for node_prev in selected_node if node_prev != node_curr
                                     for cargo_key, cargo_value in selected_cargo.items()
                                     if node_curr == cargo_value[4]
                                 )
@@ -610,6 +618,7 @@ def tvopdpt_milp_gurobi(constant,
                                 )
                      <= D[(node_curr, truck_key)]
                     )  
+    bigM_time = 2000
 
     for node_curr in selected_node:
         for cargo_ in selected_cargo.keys():
@@ -702,7 +711,6 @@ def tvopdpt_milp_gurobi(constant,
     # same as SVOPDP model
     # bigM constraints for travel time on edge(i,j) (3.18) 
     # D[prev_node] + edge[(prev_node, curr_node)] <= A[curr_node]
-    bigM_time = 2000
     for truck_ in selected_truck.keys():
         for node1 in selected_node:
             for node2 in selected_node:
@@ -735,7 +743,8 @@ def tvopdpt_milp_gurobi(constant,
                 MP.addConstr(
                     D[(origin_cargo, truck_)]
                     >= 
-                    selected_cargo[cargo_][1] * y[(truck_, cargo_)]
+                    selected_cargo[cargo_][1] * quicksum(z[(origin_cargo, node_next, truck_, cargo_)] 
+                                                        for node_next in selected_node if node_next != origin_cargo)
                 )
             
     # Latest time window of cargos (3.20)
@@ -751,14 +760,18 @@ def tvopdpt_milp_gurobi(constant,
                         Ab[(destination_cargo, truck_)]
                         <= 
                         selected_cargo[cargo_][2] + 
-                        bigM_time * (1 - y[(truck_, cargo_)])
+                        bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                    )
                     )
                 else:
                     MP.addConstr(
                         A[(destination_cargo, truck_)]
                         <= 
                         selected_cargo[cargo_][2] + 
-                        bigM_time * (1 - y[(truck_, cargo_)])
+                        bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                    )
                     )
 
     # maximum worktime of trucks (3.21)
@@ -798,71 +811,118 @@ def tvopdpt_milp_gurobi(constant,
             if destination_cargo in selected_node:
                 # if truck_ is a cycle truck and 
                 # destination_cargo is its destination
-                if truck_ in created_truck_yCycle.keys() and \
-                   destination_cargo == created_truck_yCycle[truck_][1]:
-                    MP.addConstr(
-                        Ab[(destination_cargo, truck_)] - 
-                        D[(origin_cargo, truck_)]
-                        >= 
-                        selected_edge[(origin_cargo, destination_cargo)] -
-                        bigM_time * (1 - y[(truck_, cargo_)])
-                    )
-                    MP.addConstr(
-                        A[(origin_cargo, truck_)] - 
-                        D[(destination_cargo, truck_)]
-                        >= 
-                        selected_edge[(destination_cargo, origin_cargo)] -
-                        bigM_time * (1 - y[(truck_, cargo_)])
-                    )
+                if truck_ in created_truck_yCycle.keys():
+                    if destination_cargo == created_truck_yCycle[truck_][1]:
+                        MP.addConstr(
+                            Ab[(destination_cargo, truck_)] - D[(origin_cargo, truck_)]
+                            >=  selected_edge[(origin_cargo, destination_cargo)] 
+                            - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                                                            for node_prev in selected_node if node_prev != destination_cargo)
+                                          )
+                            - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
+                        )
+                    else:                    
+                        MP.addConstr(
+                        A[(destination_cargo, truck_)] -  D[(origin_cargo, truck_)]
+                        >=  selected_edge[(origin_cargo, destination_cargo)] 
+                        - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                                                        for node_prev in selected_node if node_prev != destination_cargo)
+                                      )
+                        - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
+                        )
                 else:
                     MP.addConstr(
-                        A[(destination_cargo, truck_)] - 
-                        D[(origin_cargo, truck_)]
-                        >= 
-                        selected_edge[(origin_cargo, destination_cargo)] -
-                        bigM_time * (1 - y[(truck_, cargo_)])
+                        A[(destination_cargo, truck_)] -  D[(origin_cargo, truck_)]
+                        >=  selected_edge[(origin_cargo, destination_cargo)] 
+                        - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                                                        for node_prev in selected_node if node_prev != destination_cargo)
+                                      )
+                        - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                     )
-            
-            
-            
-            
+    
+    for cargo_key, cargo_value in selected_cargo.items():
+        origin_cargo, destination_cargo = cargo_value[3], cargo_value[4]
+        if truck_1 in created_truck_yCycle.keys():
+            if destination_cargo == created_truck_yCycle[truck_1][1]:
+                MP.addConstr(
+                    Ab[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
+                    >=  selected_edge[(origin_cargo, destination_cargo)] 
+                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                  )
+                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
+                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
+                )
+            else:
+                MP.addConstr(
+                    A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
+                    >=  selected_edge[(origin_cargo, destination_cargo)] 
+                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                  )
+                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
+                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
+                )
+        else:
+                MP.addConstr(
+                    A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
+                    >=  selected_edge[(origin_cargo, destination_cargo)] 
+                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                  )
+                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
+                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
+                )
+
+        if truck_2 in created_truck_yCycle.keys():
+            if destination_cargo == created_truck_yCycle[truck_2][1]:
+                MP.addConstr(
+                    Ab[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
+                    >=  selected_edge[(origin_cargo, destination_cargo)] 
+                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                  )
+                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
+                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
+                )
+            else:
+                MP.addConstr(
+                    A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
+                    >=  selected_edge[(origin_cargo, destination_cargo)] 
+                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                  )
+                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
+                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
+                )
+        else:
+                MP.addConstr(
+                    A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
+                    >=  selected_edge[(origin_cargo, destination_cargo)] 
+                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                                                    for node_prev in selected_node if node_prev != destination_cargo)
+                                  )
+                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
+                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
+                )          
     
     ###### Objective ######
     
 
-    if y_sol_ is None:
-        # cargo size cost: proportional to the total size of cargo carried by the only truck
-        cost_cargo_size = quicksum(y[truck_, cargo_] * selected_cargo[cargo_][0] * 
-                                constant['truck_running_cost'] * 1
+    # cargo number cost: proportional to the number of cargo carried by the only truck
+    cost_cargo_number = quicksum(z[(node_, selected_cargo[cargo_][-1], truck_, cargo_)] 
+                                for cargo_ in selected_cargo.keys()
+                                for node_ in selected_node if node_ != selected_cargo[cargo_][-1]
                                 for truck_ in selected_truck.keys()
-                                for cargo_ in selected_cargo.keys())
-        
-        # cargo number cost: proportional to the number of cargo carried by the only truck
-        cost_cargo_number = quicksum(y[truck_, cargo_] * 
-                                    constant['truck_running_cost'] * 1000
-                                    for truck_ in selected_truck.keys()
-                                    for cargo_ in selected_cargo.keys())
-        
-        MP.setObjective(cost_cargo_size + cost_cargo_number)
-        MP.modelSense = GRB.MAXIMIZE
-        # set Params.Heuristics to 0.5 
-        # such that it better finds feasible solution
-        MP.Params.Heuristics = 0.5
-        MP.Params.LogFile = filename
-        callback=early_termination_callback
-
-    else:
-        cost_travel = quicksum(x[(node1, node2, truck_)] * 
-                            selected_edge[(node1, node2)] * 
-                            constant['truck_running_cost']
-                            for truck_ in selected_truck.keys()
-                            for node1 in selected_node
-                            for node2 in selected_node
-                            if node1 != node2)
-        MP.setObjective(cost_travel)
-        MP.modelSense = GRB.MINIMIZE
-        MP.Params.LogFile = filename[:-4]+'_reopt.log'
-        callback=None
+                                )
+    
+    MP.setObjective(cost_cargo_number)
+    MP.modelSense = GRB.MAXIMIZE
+    # set Params.Heuristics to 0.5 
+    # such that it better finds feasible solution
+    MP.Params.Heuristics = 0.5
+    MP.Params.LogFile = filename
+    callback=None
     
     ###### Integrate the model and optimize ######
 
@@ -984,5 +1044,5 @@ def tvopdpt_milp_gurobi(constant,
 
     
     return obj_val_MP, runtime_MP, \
-           x_sol, {}, y_sol, S_sol, D_sol, A_sol, \
+           x_sol, {}, S_sol, D_sol, A_sol, \
            Sb_sol, Db_sol, Ab_sol

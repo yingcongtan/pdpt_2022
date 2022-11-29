@@ -818,8 +818,8 @@ def tvopdpt_milp_gurobi(constant,
                             >=  selected_edge[(origin_cargo, destination_cargo)] 
                             - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
                                                             for node_prev in selected_node if node_prev != destination_cargo)
+                                          + quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                                           )
-                            - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                         )
                     else:                    
                         MP.addConstr(
@@ -827,8 +827,8 @@ def tvopdpt_milp_gurobi(constant,
                         >=  selected_edge[(origin_cargo, destination_cargo)] 
                         - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
                                                         for node_prev in selected_node if node_prev != destination_cargo)
+                                         + quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                                       )
-                        - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                         )
                 else:
                     MP.addConstr(
@@ -836,8 +836,8 @@ def tvopdpt_milp_gurobi(constant,
                         >=  selected_edge[(origin_cargo, destination_cargo)] 
                         - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
                                                         for node_prev in selected_node if node_prev != destination_cargo)
+                                       + quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                                       )
-                        - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                     )
     
     for cargo_key, cargo_value in selected_cargo.items():
@@ -847,31 +847,29 @@ def tvopdpt_milp_gurobi(constant,
                 MP.addConstr(
                     Ab[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                     - quicksum(w[(node_, cargo_)]for node_ in selected_node)
                                   )
-                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
                 )
             else:
                 MP.addConstr(
                     A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                     - quicksum(w[(node_, cargo_)]for node_ in selected_node)
                                   )
-                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
                 )
+
         else:
                 MP.addConstr(
                     A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                     - quicksum(w[(node_, cargo_)]for node_ in selected_node)
                                   )
-                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
                 )
 
         if truck_2 in created_truck_yCycle.keys():
@@ -879,31 +877,28 @@ def tvopdpt_milp_gurobi(constant,
                 MP.addConstr(
                     Ab[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                     - quicksum(u[(node_, cargo_)]for node_ in selected_node)
                                   )
-                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
                 )
             else:
                 MP.addConstr(
                     A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
-                                  )
-                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
+                                     - quicksum(u[(node_, cargo_)]for node_ in selected_node)
+                                   )
                 )
         else:
                 MP.addConstr(
                     A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                     - quicksum(u[(node_, cargo_)]for node_ in selected_node)
                                   )
-                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
                 )          
     
     ###### Objective ######

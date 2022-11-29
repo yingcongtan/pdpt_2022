@@ -246,19 +246,19 @@ def solve_pdotw_mip(ins,  # dict contains the data of pdpt instance,
                     selected_node.append(created_truck[truck_key][1])
 
                 # edges in the cluster
-                    selected_edge = {}
-                    for i in selected_node:
-                        for j in selected_node:
-                            selected_edge[(i,j)] = edge_shortest[(i,j)]
-                    
-                    node_list_truck_hubs[truck_key] = selected_node.copy()
-                    assert len(created_truck) == len(node_list_truck_hubs), "Inconsistent truck numbers"
-                    node_cargo_size_change = \
-                    generate_node_cargo_size_change(selected_node, delivered_cargo)
+                selected_edge = {}
+                for i in selected_node:
+                    for j in selected_node:
+                        selected_edge[(i,j)] = edge_shortest[(i,j)]
+                
+                node_list_truck_hubs[truck_key] = selected_node.copy()
+                assert len(created_truck) == len(node_list_truck_hubs), "Inconsistent truck numbers"
+                node_cargo_size_change = \
+                generate_node_cargo_size_change(selected_node, delivered_cargo)
 
-                    ### group cycle and non-cycle trucks
-                    created_truck_yCycle, created_truck_nCycle, created_truck_all = \
-                    group_cycle_truck(created_truck) 
+                ### group cycle and non-cycle trucks
+                created_truck_yCycle, created_truck_nCycle, created_truck_all = \
+                group_cycle_truck(created_truck) 
 
                 obj_val_MP, runtime_MP, \
                 x_sol, _, y_sol, S_sol, D_sol, A_sol, \

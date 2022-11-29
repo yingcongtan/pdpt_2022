@@ -43,7 +43,7 @@ def main():
     #         read_pdpt_csv_to_pickle(case_num, DATA_DIR+'/data', verbose = VERBOSE-1)
 
     for case_num in (range(1,6,1)):
-    # for case_num in [2,]:
+    # for case_num in [1,]:
         # curr_time = time.time()
         print(f'\n______________CASE {case_num}_________________')
         Path(DATA_DIR+f'/out/iniSol/case{case_num}_gurobi').mkdir(parents=True, exist_ok=True)

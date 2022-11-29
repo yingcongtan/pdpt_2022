@@ -625,7 +625,8 @@ def pdotw_mip_gurobi(constant, y_sol_,
                     )
             # if truck_ is a non-cycle truck
             else:
-                if node_ != created_truck_all[truck_][0] and node_ == created_truck_all[truck_][1]:
+                if node_ != created_truck_all[truck_][0]:
+                    if node_ == created_truck_all[truck_][1]:
                         MP.addConstr(
                             A[(node_, truck_)] +
                             constant['node_fixed_time'] +
@@ -636,18 +637,18 @@ def pdotw_mip_gurobi(constant, y_sol_,
                                      if node_ == selected_cargo[cargo_][4])
                             <= D[(node_, truck_)]
                         )
-                else:
-                    MP.addConstr(
-                        A[(node_, truck_)] +
-                        constant['node_fixed_time'] +
-                        quicksum(y[(truck_, cargo_)] * 
-                                    int(np.ceil(selected_cargo[cargo_][0] * 
-                                    constant['loading_variation_coefficient']))
-                                    for cargo_ in selected_cargo.keys()
-                                    if node_ == selected_cargo[cargo_][3] \
-                                    or node_ == selected_cargo[cargo_][4])
-                        <= D[(node_, truck_)]
-                    )
+                    else:
+                        MP.addConstr(
+                            A[(node_, truck_)] +
+                            constant['node_fixed_time'] +
+                            quicksum(y[(truck_, cargo_)] * 
+                                     int(np.ceil(selected_cargo[cargo_][0] * 
+                                     constant['loading_variation_coefficient']))
+                                     for cargo_ in selected_cargo.keys()
+                                     if node_ == selected_cargo[cargo_][3] \
+                                     or node_ == selected_cargo[cargo_][4])
+                            <= D[(node_, truck_)]
+                        )
     
     # bigM constraints for travel time on edge(i,j) (3.18) 
     # D[prev_node] + edge[(prev_node, curr_node)] <= A[curr_node]
@@ -756,13 +757,13 @@ def pdotw_mip_gurobi(constant, y_sol_,
                         selected_edge[(origin_cargo, destination_cargo)] -
                         bigM_time * (1 - y[(truck_, cargo_)])
                     )
-                    # MP.addConstr(
-                    #     A[(origin_cargo, truck_)] - 
-                    #     D[(destination_cargo, truck_)]
-                    #     >= 
-                    #     selected_edge[(destination_cargo, origin_cargo)] -
-                    #     bigM_time * (1 - y[(truck_, cargo_)])
-                    # )
+                    MP.addConstr(
+                        A[(origin_cargo, truck_)] - 
+                        D[(destination_cargo, truck_)]
+                        >= 
+                        selected_edge[(destination_cargo, origin_cargo)] -
+                        bigM_time * (1 - y[(truck_, cargo_)])
+                    )
                 else:
                     MP.addConstr(
                         A[(destination_cargo, truck_)] - 

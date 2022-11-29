@@ -14,9 +14,9 @@ from src.util import generate_node_cargo_size_change, calculate_single_truck_dev
 from src.util import read_pickle
 from src.pdotw_mip import eval_pdotw_sol
 
-from pdpt_repair import best_insert
+# from pdpt_repair import best_insert
 from pdpt_ini_sol import solve_pdotw_mip
-from pdpt_rasd import select_subroutes, pdpt_route_schedule_decomposition
+# from pdpt_rasd import select_subroutes, pdpt_route_schedule_decomposition
 import pickle
 from pathlib import Path
 from matplotlib.lines import Line2D
@@ -604,21 +604,21 @@ def main():
     
     ins = toy_example()
 
-    # fig1, ax1, title_1 = plot_instance_more_details(dir_, truck_colors, cargo_colors, legend_font)
-    # for i in range(len(ax1)):
-    #     ax1[i].set_title(title_1[i], size=18, font='serif')
-    # fig1.tight_layout()
-    # fig1.savefig(os.path.join(dir_, 'toy.png'), dpi=150)
+    fig1, ax1, title_1 = plot_instance_more_details(dir_, truck_colors, cargo_colors, legend_font)
+    for i in range(len(ax1)):
+        ax1[i].set_title(title_1[i], size=18, font='serif')
+    fig1.tight_layout()
+    fig1.savefig(os.path.join(dir_, 'toy.png'), dpi=150)
 
 
     print('=========== Construct IniSol')
     toy_ini_sol(dir_, greedy_initialization = False, verbose = 1) 
 
 
-    # fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
-    # ax2.set_title(title_2, size=18, font='serif')
-    # fig2.tight_layout()
-    # fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
+    fig2, ax2, title_2 = plot_init_Sol(dir_, truck_colors, cargo_colors, legend_font)
+    ax2.set_title(title_2, size=18, font='serif')
+    fig2.tight_layout()
+    fig2.savefig(dir_+'/toy_initSol.png', dpi=150)
 
     # pdpt_rasd(dir_)
 

@@ -603,7 +603,7 @@ def pdotw_mip_gurobi(constant, y_sol_,
                 if node_ == created_truck_yCycle[truck_][1]:
                     MP.addConstr(
                         Ab[(node_, truck_)] +
-                        constant['node_fixed_time'] +
+                        constant['node_fixed_time']  +
                         quicksum(y[(truck_, cargo_)] * 
                                  int(np.ceil(selected_cargo[cargo_][0] * 
                                  constant['loading_variation_coefficient']))

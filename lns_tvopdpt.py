@@ -229,7 +229,7 @@ def prepare_subproblem(pdpt_ins,
     return pdpt_subproblem
 
 
-def lns_tvopdpt(case_num, max_iter = 20, max_runtime = 150):
+def lns_tvopdpt(case_num, max_iter = 20, max_runtime = 100):
     # truck_pairs_tried = [['T7', 'T19']]
     truck_pairs_tried = []
 
@@ -328,6 +328,7 @@ def main():
 
     for case_num in range(1,6,1):
     # for case_num in [3]:
+        print(f'\n START LNS_TVOPDPT on case {case_num}========================')
         with ConsoleLogger.copy_to(os.path.join(dir_, 'out','impSol_tvopdpt', f'case{case_num}.log')):
 
             lns_tvopdpt(case_num)

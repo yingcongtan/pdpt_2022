@@ -319,6 +319,7 @@ def gurobi_master_cycle(constant, selected_cargo,
                         <= s[truck_]
                     )
                     
+    # todo: fix this
     for cargo_ in selected_cargo.keys():
     # cargo flow constraints (2.7)
         origin_cargo = selected_cargo[cargo_][3]

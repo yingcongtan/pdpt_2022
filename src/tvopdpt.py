@@ -14,7 +14,9 @@ def tvopdpt_milp_gurobi(constant,
                         selected_node, 
                         selected_edge, 
                         node_cargo_size_change, 
-                        runtime, filename, verbose = 0):
+                        runtime, filename, 
+                        verbose = 0,
+                        early_termination_timelimit = None):
     
     """
     code a MILP model for two-veihcle orienteering pick-up and delivery problem with transfer (TVOPDPT) in Gurobi
@@ -39,7 +41,19 @@ def tvopdpt_milp_gurobi(constant,
         Sb_sol, Db_sol, Ab_sol, u_sol, w_sol
         
     """
-    
+    def early_termination_callback(model, where):
+        if where == GRB.Callback.MIPNODE:
+            # Get model objective
+            obj = model.cbGet(GRB.Callback.MIPNODE_OBJBST)
+            if abs(obj - model._cur_obj) > 1e-8:
+                # If so, update incumbent and time
+                model._cur_obj = obj
+                model._time = time.time()
+        # Terminate if objective has not improved in 20s
+        if time.time() - model._time > early_termination_timelimit:
+            MP._termination_flag = 1
+            model.terminate()
+
     MP = Model("Gurobi MIP for TVOPDPT")    
     
     ###### Decision Variables ######
@@ -114,7 +128,7 @@ def tvopdpt_milp_gurobi(constant,
 
     ###### Constraints ######
     ###### Distinguish cycle trucks and non-cycle trucks ######
-    truck_1, truck_2 = selected_truck.keys()
+    
 
     # constraints related to transfer variables
 
@@ -133,77 +147,61 @@ def tvopdpt_milp_gurobi(constant,
     #     MP.addConstr(
     #         quicksum(w[(node_, cargo_key)] for node_ in selected_node) <= 1
     #     )
-    
-    for cargo_key, cargo_value in selected_cargo.items():
-        cargo_origin, cargo_destination = cargo_value[-2], cargo_value[-1]
-        
-        MP.addConstr(u[(cargo_origin, cargo_key)] == 0)                # do not transfer at cargo's origin
-        MP.addConstr(u[(cargo_destination, cargo_key)] == 0)           # do not transfer at cargo's destination
-        MP.addConstr(u[(selected_truck[truck_1][0], cargo_key)] == 0)  # do not tranfer cargo at truck's origin
-        MP.addConstr(u[(selected_truck[truck_2][1], cargo_key)] == 0)  # do not receive cargo at truck's destination
-
-        MP.addConstr(w[(cargo_origin, cargo_key)] == 0)                # do not transfer at cargo's origin
-        MP.addConstr(w[(cargo_destination, cargo_key)] == 0)           # do not transfer at cargo's destination
-        MP.addConstr(w[(selected_truck[truck_2][0], cargo_key)] == 0)  # do not tranfer cargo at truck's origin
-        MP.addConstr(w[(selected_truck[truck_1][1], cargo_key)] == 0)  # do not receive cargo at truck's destination
-
     # # u[(node_, cargo_)] + w[(node_, cargo_)] <=1
     # for cargo_key in selected_cargo.keys():
     #     for node_ in selected_node:
     #         w[(node_, cargo_key)] + u[(node_, cargo_key)] <= 1 
 
+    truck_1, truck_2 = selected_truck.keys()
+    for cargo_key, cargo_value in selected_cargo.items():
+        cargo_origin, cargo_destination = cargo_value[-2], cargo_value[-1]
+        
+        MP.addConstr(u[(cargo_origin, cargo_key)] == 0)                # do not transfer at cargo's origin
+        MP.addConstr(u[(cargo_destination, cargo_key)] == 0)           # do not transfer at cargo's destination
+        MP.addConstr(u[(selected_truck[truck_1][0], cargo_key)] == 0)  # do not tranfer from truck 1 to truck 2 at truck1's origin
+        MP.addConstr(u[(selected_truck[truck_2][1], cargo_key)] == 0)  # ddo not tranfer from truck 1 to truck 2 at truck2's dest
+
+        MP.addConstr(w[(cargo_origin, cargo_key)] == 0)                # do not transfer at cargo's origin
+        MP.addConstr(w[(cargo_destination, cargo_key)] == 0)           # do not transfer at cargo's destination
+        MP.addConstr(w[(selected_truck[truck_2][0], cargo_key)] == 0)  # do not tranfer from truck 2 to truck 1 at truck2's origin
+        MP.addConstr(w[(selected_truck[truck_1][1], cargo_key)] == 0)  # do not tranfer from truck 2 to truck 1 at truck1's dest
+
+
+
+    
     for cargo_key, cargo_value in selected_cargo.items():
         cargo_origin, cargo_destination = cargo_value[-2], cargo_value[-1]
         for node_ in selected_node:
-            # if node_ not in [cargo_origin, cargo_destination, selected_truck[truck_1][0], selected_truck[truck_2][1]]:
-                #u[node_, cargo_] = sum_j z^{k1r}_{ji} - sum_j z^{k1r}_{ij}
+            if node_ not in [cargo_origin, cargo_destination, selected_truck[truck_1][0], selected_truck[truck_2][1]]:
+                # u[node_, cargo_] = sum_j z^{k1r}_{ji} - sum_j z^{k1r}_{ij}
                 # except cargo_origin, cargo_destination, truck1_origin, truck2_destination
-            #     MP.addConstr( # update nov. 29th
-            #         u[(node_, cargo_)] == quicksum(z[(node_prev, node_, truck_1, cargo_key )]
-            #                                    for node_prev in selected_node if node_prev!= node_)
-            #                             - quicksum(z[(node_, node_next, truck_1, cargo_key )]
-            #                                    for node_next in selected_node if node_next!= node_)
-            #     )
-            # if node_ not in [cargo_origin, cargo_destination, selected_truck[truck_2][0], selected_truck[truck_1][1]]:
-            #     #w[node_, cargo_] = sum_j z^{k2r}_{ji} - sum_j z^{k2r}_{ij}
-                
-            #     MP.addConstr(
-            #         w[(node_, cargo_)] == quicksum(z[(node_prev, node_, truck_2, cargo_key )]
-            #                                    for node_prev in selected_node if node_prev!= node_)
-            #                             - quicksum(z[(node_, node_next, truck_2, cargo_key )]
-            #                                    for node_next in selected_node if node_next!= node_)
-            #     )
-            # added on Nov. 29th
-            if node_ in [cargo_origin, cargo_destination, selected_truck[truck_1][0], selected_truck[truck_2][1]]:
-                MP.addConstr(u[(node_, cargo_)] == 0)
-            else:
                 MP.addConstr( # update nov. 29th
-                    u[(node_, cargo_)] == quicksum(z[(node_prev, node_, truck_1, cargo_key )]
+                    u[(node_, cargo_key)] == quicksum(z[(node_prev, node_, truck_1, cargo_key )]
                                                for node_prev in selected_node if node_prev!= node_)
                                         - quicksum(z[(node_, node_next, truck_1, cargo_key )]
                                                for node_next in selected_node if node_next!= node_)
                 )
-            #added on nov. 29th
-            if node_ in [cargo_origin, cargo_destination, selected_truck[truck_2][0], selected_truck[truck_1][1]]:
-                MP.addConstr(w[(node_, cargo_)] == 0)
-            else:
+            if node_ not in [cargo_origin, cargo_destination, selected_truck[truck_2][0], selected_truck[truck_1][1]]:
+                
                 MP.addConstr(
-                    w[(node_, cargo_)] == quicksum(z[(node_prev, node_, truck_2, cargo_key )]
+                    w[(node_, cargo_key)] == quicksum(z[(node_prev, node_, truck_2, cargo_key )]
                                                for node_prev in selected_node if node_prev!= node_)
                                         - quicksum(z[(node_, node_next, truck_2, cargo_key )]
                                                for node_next in selected_node if node_next!= node_)
                 )
 
-    # cargo flow constraints (2.7)
+
+    for cargo_ in selected_cargo.keys():
+    # at most one cargo flow from cargo's origin
         origin_cargo = selected_cargo[cargo_][3]
         MP.addConstr( 
             quicksum(z[(origin_cargo, succ_node, truck_, cargo_)] * 1
                      for succ_node in selected_node 
                      if succ_node != origin_cargo
                      for truck_ in selected_truck.keys())
-                     == 1 
+                     <= 1 
         )
-    # cargo flow constraints (2.8)
+    # no cargo flow to cargo's origin
         MP.addConstr( 
             quicksum(z[(succ_node, origin_cargo, truck_, cargo_)] * 1
                      for succ_node in selected_node 
@@ -211,16 +209,16 @@ def tvopdpt_milp_gurobi(constant,
                      for truck_ in selected_truck.keys())
                      == 0 
         )
-    # cargo flow constraints (2.9)
+    # at most one cargo flow to cargo's dest
         destination_cargo = selected_cargo[cargo_][4]
         MP.addConstr( 
             quicksum(z[(pred_node, destination_cargo, truck_, cargo_)] * 1
                      for pred_node in selected_node 
                      if pred_node != destination_cargo
                      for truck_ in selected_truck.keys())
-                     == 1 
+                     <= 1 
         )
-    # cargo flow constraints (2.10)
+    # no cargo flow from cargo's destination
         MP.addConstr( 
             quicksum(z[(destination_cargo, pred_node, truck_, cargo_)] * 1
                      for pred_node in selected_node 
@@ -229,7 +227,7 @@ def tvopdpt_milp_gurobi(constant,
                      == 0 
         )
     
-    # cargo flow constraints (2.11)
+    # added on Nov. 29th
     for cargo_ in selected_cargo.keys():
         origin_cargo = selected_cargo[cargo_][3]
         destination_cargo = selected_cargo[cargo_][4]
@@ -258,13 +256,13 @@ def tvopdpt_milp_gurobi(constant,
         )
 
     # z^{k1r}_{ij} + z^{k2r}_{ij} <=1
+
     for node_curr in selected_node:
         for node_next in selected_node:
             if node_curr != node_next:
                 for cargo_key in selected_cargo.keys():
                     MP.addConstr(
-                        z[node_curr, node_next, truck_1, cargo_key] 
-                        + z[node_curr, node_next, truck_2, cargo_key]
+                        z[node_curr, node_next, truck_1, cargo_key] + z[node_curr, node_next, truck_2, cargo_key]
                         <= 1
                     )
     
@@ -272,12 +270,14 @@ def tvopdpt_milp_gurobi(constant,
     # cargo can arrive at cargo_dest or leave cargo_origin in only one truck
     for cargo_key, cargo_value in selected_cargo.items():
         cargo_origin, cargo_dest = cargo_value[-2], cargo_value[-1]
-        MP.addConstr( quicksum(z[cargo_origin, node_next, truck_1, cargo_key] for node_next in selected_node if node_next != cargo_origin)
-                    + quicksum(z[cargo_origin, node_next, truck_2, cargo_key] for node_next in selected_node if node_next != cargo_origin)
+        MP.addConstr( quicksum(   z[cargo_origin, node_next, truck_1, cargo_key] 
+                                + z[cargo_origin, node_next, truck_2, cargo_key] 
+                                for node_next in selected_node if node_next != cargo_origin)
                     <=1
         )
-        MP.addConstr( quicksum(z[node_prev, cargo_dest, truck_1, cargo_key] for node_prev in selected_node if cargo_dest != node_prev)
-                    + quicksum(z[node_prev, cargo_dest, truck_2, cargo_key] for node_prev in selected_node if cargo_dest != node_prev)
+        MP.addConstr( quicksum(   z[node_prev, cargo_dest, truck_1, cargo_key] 
+                                + z[node_prev, cargo_dest, truck_2, cargo_key] 
+                                for node_prev in selected_node if cargo_dest != node_prev)
                     <=1
         )
         
@@ -287,9 +287,7 @@ def tvopdpt_milp_gurobi(constant,
         origin_truck = selected_truck[truck_][0]
         if origin_truck in selected_node:
             MP.addConstr( 
-                quicksum(x[(origin_truck, succ_node, truck_)] * 1
-                         for succ_node in selected_node
-                         if succ_node != origin_truck) == 1 
+                quicksum(x[(origin_truck, succ_node, truck_)] for succ_node in selected_node if succ_node != origin_truck) == 1 
             )
         
     # Flow constraints (3.2)  
@@ -299,9 +297,7 @@ def tvopdpt_milp_gurobi(constant,
         origin_truck = created_truck_nCycle[truck_][0]
         if origin_truck in selected_node:
             MP.addConstr( 
-                quicksum(x[(succ_node, origin_truck, truck_)] * 1
-                         for succ_node in selected_node
-                         if succ_node != origin_truck) == 0 
+                quicksum(x[(succ_node, origin_truck, truck_)] for succ_node in selected_node if succ_node != origin_truck) == 0 
             )
 
     # Flow constraints (3.3)
@@ -310,9 +306,7 @@ def tvopdpt_milp_gurobi(constant,
         destination_truck = selected_truck[truck_][1]
         if destination_truck in selected_node:
             MP.addConstr( 
-                quicksum(x[(pred_node, destination_truck, truck_)] * 1
-                         for pred_node in selected_node
-                         if pred_node != destination_truck) == 1
+                quicksum(x[(node_perv, destination_truck, truck_)] for node_perv in selected_node if node_perv != destination_truck) == 1
             )    
         
     # Flow constraints (3.4)
@@ -322,9 +316,7 @@ def tvopdpt_milp_gurobi(constant,
         destination_truck = created_truck_nCycle[truck_][1]
         if destination_truck in selected_node:
             MP.addConstr( 
-                quicksum(x[(destination_truck, pred_node, truck_)] * 1
-                         for pred_node in selected_node
-                         if pred_node != destination_truck) == 0 
+                quicksum(x[(destination_truck, node_next, truck_)] for node_next in selected_node if node_next != destination_truck) == 0 
             )
     
     
@@ -338,43 +330,33 @@ def tvopdpt_milp_gurobi(constant,
         destination_truck = selected_truck[truck_][1]
         for node_ in selected_node:
             if node_ != origin_truck and node_ != destination_truck:
-                MP.addConstr(
-                    quicksum(x[(pred_node, node_, truck_)] * 1
-                             for pred_node in selected_node
-                             if pred_node != node_) 
-                    ==
-                    quicksum(x[(node_, succ_node, truck_)] * 1
-                             for succ_node in selected_node
-                             if succ_node != node_) 
+                MP.addConstr( quicksum(x[(pred_node, node_, truck_)]  for pred_node in selected_node if pred_node != node_) 
+                            == quicksum(x[(node_, succ_node, truck_)]  for succ_node in selected_node if succ_node != node_) 
                 )
     
     # An edge is used at most once by a truck (3.6)
     # only apply for non-cycle trucks
     # and non-origin nodes for cycle trucks
-    for truck_ in created_truck_nCycle.keys():
-        for i in selected_node:
-            for j in selected_node:
-                if i != j:
-                    MP.addConstr(
-                        x[(i, j, truck_)] +
-                        x[(j, i, truck_)]
-                        <= 1
-                    )
-    for truck_ in created_truck_yCycle.keys():
-        origin_truck = created_truck_yCycle[truck_][0]
-        for i in selected_node:
-            for j in selected_node:
-                if i != j:
-                    if i != origin_truck and j != origin_truck:
+    for truck_ in selected_truck.keys():
+        if truck_ in created_truck_nCycle.keys():
+            for i in selected_node:
+                for j in selected_node:
+                    if i != j:
                         MP.addConstr(
-                            x[(i, j, truck_)] +
-                            x[(j, i, truck_)]
+                            x[(i, j, truck_)] + x[(j, i, truck_)]
                             <= 1
                         )
+        elif truck_ in created_truck_yCycle.keys():
+            origin_truck = created_truck_yCycle[truck_][0]
+            for i in selected_node:
+                for j in selected_node:
+                    if i != j:
+                        if i != origin_truck and j != origin_truck:
+                            MP.addConstr(
+                                x[(i, j, truck_)] + x[(j, i, truck_)]
+                                <= 1
+                            )
             
-
-        
-
     for node_curr in selected_node:
         for node_next in selected_node:
             if node_curr != node_next:
@@ -397,151 +379,144 @@ def tvopdpt_milp_gurobi(constant,
                 == 0
             )
 
+    truck_1, truck_2 = selected_truck.keys()
+    truck_1_origin, truck_1_dest = selected_truck[truck_1][:2]
+    truck_2_origin, truck_2_dest = selected_truck[truck_2][:2]
+
     bigM_capacity = 30000
     for node_curr in selected_node:
         for node_prev in selected_node:
-            if node_prev != node_prev:
+            if node_curr != node_prev:
                 if truck_1 in created_truck_yCycle.keys(): # if truck_1 is a cycle truck
-                    if node_prev == created_truck_yCycle[truck_1][1]: #if node_curr is the destination of truck1
-                        # cargo size change from i to j
-                        # s[k1, j] - s[k1, i] <= sum_{r if r_dest == j} z[i, j, k1, r]*delta[j, r]
-                        #                       - M*(1-x[i, j, k1]) - sum_r u[j, r]*r_size
+                    if node_curr == truck_1_dest: 
+                        # if node_curr is the destination of truck1
+                        # then we can only deliver cargo, and transfer cargo to truck 2
+                        
                         MP.addConstr(
-                            Sb[(node_curr, truck_)] - S[(node_prev, truck_)] 
+                            Sb[(node_curr, truck_1)] - S[(node_prev, truck_1)] 
                             >=  quicksum(z[(node_prev, node_curr, truck_1, cargo_key)]* 
                                             node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
-                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[4] == node_curr) # deliver cargo if node_curr is cargo's dest
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
+                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0] # transfer to truck 2 if node_curr is not cargo's origin
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[3]) 
                         )
-                    else: # if node_curr is not the destination of truck1
-                        # cargo size change from i to j
-                        # s[k1, j] - s[k1, i] <= sum_{r if r_dest == j} z[i, j, k1, r]*delta[j, r] 
-                        #                      + sum_{r if r_origin == j, l in V} z[j, l, k1, r]*delta[j, r] 
-                        #                       - M*(1-x[i, j, k1]) - sum_r u[j, r]*r_size +  sum_r w[j, r]*r_size + 
+                    elif node_curr != truck_1_origin and node_curr != truck_1_dest:
+                         # if node_curr is not the destination or the origin of truck1
+                          # then truck1 can deliver cargo, pickup cargo, transfer to truck2 and receive from truck 2
                         MP.addConstr(
-                            S[(node_curr, truck_)] - S[(node_prev, truck_)] 
+                            S[(node_curr, truck_1)] - S[(node_prev, truck_1)] 
                             >=  quicksum(z[(node_prev, node_curr, truck_1, cargo_key)]* 
                                             node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
+                                            if cargo_value[4] == node_curr) # deliver cargo
                                 + quicksum( z[(node_curr, node_next, truck_1, cargo_key)]* 
                                             node_cargo_size_change[(node_curr, cargo_)]
                                             for node_next in selected_node 
                                             for cargo_key, cargo_value in selected_cargo.items()
-                                            if cargo_value[3] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
-                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
-                                + quicksum(w[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[3] == node_curr and node_curr != node_next) # pickup cargo
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
+                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0] # transfer to truck 2 if node_curr is not cargo's origin
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[3]) 
+                                + quicksum(w[(node_curr, cargo_key)]*cargo_value[0] # receive from truck 2 if node_curr is not cargo's dest
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[4])
                         )
                 else: # if truck 1 is a non-cucle truck
-                    if node_prev == created_truck_yCycle[truck_1][1]: #if node_curr is the destination of truck1
+                    if node_curr == truck_1_dest: 
+                        #if node_curr is the destination of truck1
+                        # then we can only deliver cargo, and transfer cargo to truck 2
+
                         MP.addConstr(
-                            S[(node_curr, truck_)] - S[(node_prev, truck_)] 
-                            >=  quicksum(z[(node_prev, node_curr, truck_1, cargo_key)]* 
-                                            node_cargo_size_change[(node_curr, cargo_)]
+                            S[(node_curr, truck_1)] - S[(node_prev, truck_1)] 
+                            >=  quicksum(z[(node_prev, node_curr, truck_1, cargo_key)]* node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
-                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[4] == node_curr) # deliver cargo
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
+                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0] # transfer to other truck 2 if node_curr is not cargo's origin
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[3] )
                         )
-                    else: # if node_curr is not the destination of truck1
-                        # cargo size change from i to j
-                        # s[k1, j] - s[k1, i] <= sum_{r if r_dest == j} z[i, j, k1, r]*delta[j, r] 
-                        #                      + sum_{r if r_origin == j, l in V} z[j, l, k1, r]*delta[j, r] 
-                        #                       - M*(1-x[i, j, k1]) - sum_r u[j, r]*r_size +  sum_r w[j, r]*r_size + 
+                    elif node_curr != truck_1_origin and node_curr != truck_1_dest:
+                        # if node_curr is not the destination or the origin of truck1
+                        # then truck1 can deliver cargo, pickup cargo, transfer to truck2 and receive from truck 2
                         MP.addConstr(
-                            S[(node_curr, truck_)] - S[(node_prev, truck_)] 
-                            >=  quicksum(z[(node_prev, node_curr, truck_1, cargo_key)]* 
-                                            node_cargo_size_change[(node_curr, cargo_)]
+                            S[(node_curr, truck_1)] - S[(node_prev, truck_1)] 
+                            >=  quicksum(z[(node_prev, node_curr, truck_1, cargo_key)]* node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
-                                + quicksum( z[(node_curr, node_next, truck_1, cargo_key)]* 
-                                            node_cargo_size_change[(node_curr, cargo_)]
+                                            if cargo_value[4] == node_curr) # deliver cargo
+                                + quicksum( z[(node_curr, node_next, truck_1, cargo_key)]* node_cargo_size_change[(node_curr, cargo_)]
                                             for node_next in selected_node 
                                             for cargo_key, cargo_value in selected_cargo.items()
-                                            if cargo_value[3] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
-                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
-                                + quicksum(w[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[3] == node_curr and node_curr != node_next) # pickup cargo
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_1)])
+                                - quicksum(u[(node_curr, cargo_key)]*cargo_value[0] # transfer to truck 2 if node_curr is not cargo's origin
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[3] )
+                                + quicksum(w[(node_curr, cargo_key)]*cargo_value[0] # receive from truck 2 if node_curr is not cargo's dest
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[4] )
                         )
                 if truck_2 in created_truck_yCycle.keys(): # if truck_2 is a cycle truck
-                    if node_prev == created_truck_yCycle[truck_2][1]: #if node_curr is the destination of truck1
-                        # cargo size change from i to j
-                        # s[k1, j] - s[k1, i] <= sum_{r if r_dest == j} z[i, j, k1, r]*delta[j, r]
-                        #                       - M*(1-x[i, j, k1]) - sum_r w[j, r]*r_size
+                    if node_curr == truck_2_dest: 
+                        #if node_curr is the destination of truck2
+                        # then we can only deliver cargo, and transfer cargo to truck 1
                         MP.addConstr(
                             Sb[(node_curr, truck_)] - S[(node_prev, truck_)] 
-                            >=  quicksum(z[(node_prev, node_curr, truck_2, cargo_key)]* 
-                                            node_cargo_size_change[(node_curr, cargo_)]
+                            >=  quicksum(z[(node_prev, node_curr, truck_2, cargo_key)]* node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
-                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[4] == node_curr) # delivery cargo
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
+                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0] # transfer cargo to truck 1 if node_curr is not cargo's destination
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[4] )
                         )
-                    else: # if node_curr is not the destination of truck1
-                        # cargo size change from i to j
-                        # s[k1, j] - s[k1, i] <= sum_{r if r_dest == j} z[i, j, k1, r]*delta[j, r] 
-                        #                      + sum_{r if r_origin == j, l in V} z[j, l, k1, r]*delta[j, r] 
-                        #                       - M*(1-x[i, j, k1]) - sum_r w[j, r]*r_size +  sum_r u[j, r]*r_size + 
+                    elif node_curr != truck_2_origin and node_curr != truck_2_dest:
+                        # if node_curr is not the destination or the origin of truck1
+                        # then truck1 can deliver cargo, pickup cargo, transfer to truck2 and receive from truck 2
                         MP.addConstr(
                             S[(node_curr, truck_)] - S[(node_prev, truck_)] 
                             >=  quicksum(z[(node_prev, node_curr, truck_2, cargo_key)]* 
                                             node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
-                                + quicksum( z[(node_curr, node_next, truck_2, cargo_key)]* 
-                                            node_cargo_size_change[(node_curr, cargo_)]
+                                            if cargo_value[4] == node_curr) # delivery cargo
+                                + quicksum( z[(node_curr, node_next, truck_2, cargo_key)]* node_cargo_size_change[(node_curr, cargo_)]
                                             for node_next in selected_node 
                                             for cargo_key, cargo_value in selected_cargo.items()
-                                            if cargo_value[3] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
-                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
-                                + quicksum(u[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[3] == node_curr and node_curr != node_next) # pickup cargo
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
+                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0] # transfer cargo to truck 1 if node_curr is not cargo's destnation
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[3] )
+                                + quicksum(u[(node_curr, cargo_key)]*cargo_value[0] # receive cargo from truck 1 if node_curr is not cargo's dest
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[4] )
                         )
                 else: # if truck 1 is a non-cucle truck
-                    if node_prev == created_truck_yCycle[truck_2][1]: #if node_curr is the destination of truck1
+                    if node_curr == truck_2_dest: 
+                        #if node_curr is the destination of truck2
+                        # then we can only deliver cargo, and transfer cargo to truck 1
                         MP.addConstr(
                             S[(node_curr, truck_)] - S[(node_prev, truck_)] 
-                            >=  quicksum(z[(node_prev, node_curr, truck_2, cargo_key)]* 
-                                            node_cargo_size_change[(node_curr, cargo_)]
+                            >=  quicksum(z[(node_prev, node_curr, truck_2, cargo_key)]* node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
-                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[4] == node_curr) # delivery cargo
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
+                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0] # transfer cargo to truck 1 if node_curr is not cargo's destination
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[4] )
                         )
-                    else: # if node_curr is not the destination of truck1
-                        # cargo size change from i to j
-                        # s[k1, j] - s[k1, i] <= sum_{r if r_dest == j} z[i, j, k1, r]*delta[j, r] 
-                        #                      + sum_{r if r_origin == j, l in V} z[j, l, k1, r]*delta[j, r] 
-                        #                       - M*(1-x[i, j, k1]) - sum_r u[j, r]*r_size +  sum_r w[j, r]*r_size + 
+                    elif node_curr != truck_2_origin and node_curr != truck_2_dest:
+                        # if node_curr is not the destination or the origin of truck1
+                        # then truck1 can deliver cargo, pickup cargo, transfer to truck2 and receive from truck 2
                         MP.addConstr(
                             S[(node_curr, truck_)] - S[(node_prev, truck_)] 
                             >=  quicksum(z[(node_prev, node_curr, truck_2, cargo_key)]* 
                                             node_cargo_size_change[(node_curr, cargo_)]
                                             for cargo_key, cargo_value in selected_cargo.items() 
-                                            if cargo_value[4] == node_curr)
-                                + quicksum( z[(node_curr, node_next, truck_2, cargo_key)]* 
-                                            node_cargo_size_change[(node_curr, cargo_)]
+                                            if cargo_value[4] == node_curr) # delivery cargo
+                                + quicksum( z[(node_curr, node_next, truck_2, cargo_key)]* node_cargo_size_change[(node_curr, cargo_)]
                                             for node_next in selected_node 
                                             for cargo_key, cargo_value in selected_cargo.items()
-                                            if cargo_value[3] == node_curr)
-                                - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
-                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
-                                + quicksum(u[(node_curr, cargo_key)]*cargo_value[0]
-                                           for cargo_key, cargo_value in selected_cargo.items())
+                                            if cargo_value[3] == node_curr and node_curr != node_next) # pickup cargo
+                                # - bigM_capacity *(1 - x[(node_prev, node_curr, truck_2)])
+                                - quicksum(w[(node_curr, cargo_key)]*cargo_value[0] # transfer cargo to truck 1 if node_curr is not cargo's destnation
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[3] )
+                                + quicksum(u[(node_curr, cargo_key)]*cargo_value[0] # receive cargo from truck 1 if node_curr is not cargo's dest
+                                           for cargo_key, cargo_value in selected_cargo.items() if node_curr != cargo_value[4] )
                         )
     
     # Change 20220911 TAN
@@ -557,17 +532,34 @@ def tvopdpt_milp_gurobi(constant,
 
     # total size of cargos at truck origins (3.16)  
     # Should be an equality constraint
-    for truck_key in selected_truck.keys():
-        origin_truck = selected_truck[truck_key][0]
-        MP.addConstr(
-            S[(origin_truck, truck_key)] == 
-            quicksum(z[(origin_truck, node_next, truck_key, cargo_key)] * \
-                     node_cargo_size_change[(origin_truck, cargo_key)]
-                     for node_next in selected_node if node_next != origin_truck
-                     for cargo_key, cargo_value in selected_cargo.items()
-                     if cargo_value[3] == origin_truck)
+    truck_1, truck_2 = selected_truck.keys()
+    truck_1_origin, truck_1_dest = selected_truck[truck_1][:2]
+    truck_2_origin, truck_2_dest = selected_truck[truck_2][:2]
+
+    # at truck_1 origin, we can only pickup cargo whose origin is the same as truck1's origin
+    # and receive cargo from truck 2 if truck1's origin is not the cargo's dest
+    MP.addConstr(
+        S[(truck_1_origin, truck_1)] == 
+        quicksum(z[(truck_1_origin, node_next, truck_1, cargo_key)] * \
+                    node_cargo_size_change[(truck_1_origin, cargo_key)]
+                    for node_next in selected_node if node_next != truck_1_origin
+                    for cargo_key, cargo_value in selected_cargo.items()
+                    if cargo_value[3] == truck_1_origin) # pickup cargo if truck1's origin = cargo's origin
+        + quicksum(w[(node_curr, cargo_key)]*cargo_value[0] # receive cargo from truck 2 if truck_1_origin is not cargo's destination
+                    for cargo_key, cargo_value in selected_cargo.items() if truck_1_origin != cargo_value[4] )    
         )
-    
+
+    MP.addConstr(
+        S[(truck_2_origin, truck_2)] == 
+        quicksum(z[(truck_2_origin, node_next, truck_2, cargo_key)] * \
+                    node_cargo_size_change[(truck_2_origin, cargo_key)]
+                    for node_next in selected_node if node_next != truck_2_origin
+                    for cargo_key, cargo_value in selected_cargo.items()
+                    if cargo_value[3] == truck_2_origin) # pickup cargo if truck2's origin = cargo's origin
+        + quicksum(u[(node_curr, cargo_key)]*cargo_value[0] # transfer cargo to truck 1 if truck_2_origin is not cargo's destination
+                    for cargo_key, cargo_value in selected_cargo.items() if truck_2_origin != cargo_value[4] )    
+        )
+
     ### Time --------------------------------------------------------
     # Same as SVOPDP model
     # The arrival time of a truck at any node (even if not visited) 
@@ -717,8 +709,10 @@ def tvopdpt_milp_gurobi(constant,
                                 )
                      <= D[(node_curr, truck_key)]
                     )  
-    bigM_time = 2000
 
+
+    bigM_time = 2000
+    truck_1, truck_2 = selected_truck.keys()
     for node_curr in selected_node:
         for cargo_ in selected_cargo.keys():
             if truck_1 in created_truck_yCycle.keys(): # if truck_1 is a cycle truck
@@ -902,7 +896,8 @@ def tvopdpt_milp_gurobi(constant,
             )
 
     
-    # first pickup and then delivery (3.22)
+    # # first pickup and then delivery (3.22)
+    # if cargo is picked-up and delivered by the same truck
     for truck_ in selected_truck.keys():
         for cargo_ in selected_cargo.keys():
             origin_cargo = selected_cargo[cargo_][3]
@@ -915,30 +910,37 @@ def tvopdpt_milp_gurobi(constant,
                         MP.addConstr(
                             Ab[(destination_cargo, truck_)] - D[(origin_cargo, truck_)]
                             >=  selected_edge[(origin_cargo, destination_cargo)] 
-                            - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                            - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
                                                             for node_prev in selected_node if node_prev != destination_cargo)
+                                            - quicksum(z[(origin_cargo, node_next, truck_, cargo_)] 
+                                                            for node_next in selected_node if node_next != origin_cargo)
                                           )
-                            - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
+                            # - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                         )
                     else:                    
                         MP.addConstr(
                         A[(destination_cargo, truck_)] -  D[(origin_cargo, truck_)]
                         >=  selected_edge[(origin_cargo, destination_cargo)] 
-                        - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                        - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
                                                         for node_prev in selected_node if node_prev != destination_cargo)
+                                            - quicksum(z[(origin_cargo, node_next, truck_, cargo_)] 
+                                                            for node_next in selected_node if node_next != origin_cargo)
                                       )
-                        - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
+                        # - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                         )
                 else:
                     MP.addConstr(
                         A[(destination_cargo, truck_)] -  D[(origin_cargo, truck_)]
                         >=  selected_edge[(origin_cargo, destination_cargo)] 
-                        - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
+                        - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_, cargo_)] 
                                                         for node_prev in selected_node if node_prev != destination_cargo)
+                                            - quicksum(z[(origin_cargo, node_next, truck_, cargo_)] 
+                                                            for node_next in selected_node if node_next != origin_cargo)
                                       )
-                        - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
+                        # - bigM_time * quicksum(u[(node_, cargo_)] + w[(node_, cargo_)]for node_ in selected_node)
                     )
     
+    truck_1, truck_2 = selected_truck.keys()
     for cargo_key, cargo_value in selected_cargo.items():
         origin_cargo, destination_cargo = cargo_value[3], cargo_value[4]
         if truck_1 in created_truck_yCycle.keys():
@@ -946,31 +948,31 @@ def tvopdpt_milp_gurobi(constant,
                 MP.addConstr(
                     Ab[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                    - quicksum(z[(origin_cargo, node_next, truck_2, cargo_)] 
+                                                    for node_next in selected_node if node_next != origin_cargo)
                                   )
-                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
                 )
             else:
                 MP.addConstr(
                     A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                    - quicksum(z[(origin_cargo, node_next, truck_2, cargo_)] 
+                                                    for node_next in selected_node if node_next != origin_cargo)
                                   )
-                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
                 )
         else:
                 MP.addConstr(
                     A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                    - quicksum(z[(origin_cargo, node_next, truck_2, cargo_)] 
+                                                    for node_next in selected_node if node_next != origin_cargo)
                                   )
-                    - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
                 )
 
         if truck_2 in created_truck_yCycle.keys():
@@ -978,32 +980,98 @@ def tvopdpt_milp_gurobi(constant,
                 MP.addConstr(
                     Ab[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_2, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                    - quicksum(z[(origin_cargo, node_next, truck_1, cargo_)] 
+                                                    for node_next in selected_node if node_next != origin_cargo)
                                   )
-                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
                 )
             else:
                 MP.addConstr(
                     A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_2, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                    - quicksum(z[(origin_cargo, node_next, truck_1, cargo_)] 
+                                                    for node_next in selected_node if node_next != origin_cargo)
                                   )
-                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
                 )
         else:
                 MP.addConstr(
                     A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
                     >=  selected_edge[(origin_cargo, destination_cargo)] 
-                    - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+                    - bigM_time * (2 - quicksum(z[(node_prev, destination_cargo, truck_2, cargo_)] 
                                                     for node_prev in selected_node if node_prev != destination_cargo)
+                                    - quicksum(z[(origin_cargo, node_next, truck_1, cargo_)] 
+                                                    for node_next in selected_node if node_next != origin_cargo)
                                   )
-                    - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
-                    - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
                 )          
+
+    # for cargo_key, cargo_value in selected_cargo.items():
+    #     origin_cargo, destination_cargo = cargo_value[3], cargo_value[4]
+    #     if truck_1 in created_truck_yCycle.keys():
+    #         if destination_cargo == created_truck_yCycle[truck_1][1]:
+    #             MP.addConstr(
+    #                 Ab[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
+    #                 >=  selected_edge[(origin_cargo, destination_cargo)] 
+    #                 - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+    #                                                 for node_prev in selected_node if node_prev != destination_cargo)
+    #                               )
+    #                 - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
+    #                 - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
+    #             )
+    #         else:
+    #             MP.addConstr(
+    #                 A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
+    #                 >=  selected_edge[(origin_cargo, destination_cargo)] 
+    #                 - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+    #                                                 for node_prev in selected_node if node_prev != destination_cargo)
+    #                               )
+    #                 - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
+    #                 - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
+    #             )
+    #     else:
+    #             MP.addConstr(
+    #                 A[(destination_cargo, truck_1)] - D[(origin_cargo, truck_2)]
+    #                 >=  selected_edge[(origin_cargo, destination_cargo)] 
+    #                 - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+    #                                                 for node_prev in selected_node if node_prev != destination_cargo)
+    #                               )
+    #                 - bigM_time * (1 - quicksum(w[(node_, cargo_)]for node_ in selected_node))
+    #                 - bigM_time * quicksum(u[(node_, cargo_)] for node_ in selected_node)
+    #             )
+
+    #     if truck_2 in created_truck_yCycle.keys():
+    #         if destination_cargo == created_truck_yCycle[truck_2][1]:
+    #             MP.addConstr(
+    #                 Ab[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
+    #                 >=  selected_edge[(origin_cargo, destination_cargo)] 
+    #                 - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+    #                                                 for node_prev in selected_node if node_prev != destination_cargo)
+    #                               )
+    #                 - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
+    #                 - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
+    #             )
+    #         else:
+    #             MP.addConstr(
+    #                 A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
+    #                 >=  selected_edge[(origin_cargo, destination_cargo)] 
+    #                 - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+    #                                                 for node_prev in selected_node if node_prev != destination_cargo)
+    #                               )
+    #                 - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
+    #                 - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
+    #             )
+    #     else:
+    #             MP.addConstr(
+    #                 A[(destination_cargo, truck_2)] - D[(origin_cargo, truck_1)]
+    #                 >=  selected_edge[(origin_cargo, destination_cargo)] 
+    #                 - bigM_time * (1 - quicksum(z[(node_prev, destination_cargo, truck_1, cargo_)] 
+    #                                                 for node_prev in selected_node if node_prev != destination_cargo)
+    #                               )
+    #                 - bigM_time * (1 - quicksum(u[(node_, cargo_)]for node_ in selected_node))
+    #                 - bigM_time * quicksum(w[(node_, cargo_)] for node_ in selected_node)
+    #             )          
     
     ###### Objective ######
     
@@ -1019,14 +1087,17 @@ def tvopdpt_milp_gurobi(constant,
     MP.modelSense = GRB.MAXIMIZE
     # set Params.Heuristics to 0.5 
     # such that it better finds feasible solution
-    MP.Params.Heuristics = 0.5
+    MP.Params.Heuristics = 0.8
     MP.Params.LogFile = filename
-    callback=None
+    if early_termination_timelimit is None:
+        callback = None
+    else:
+        callback = early_termination_callback
     
     ###### Integrate the model and optimize ######
 
     # private parameters to help with callback function
-    MP.Params.LogToConsole  = 0
+    # MP.Params.LogToConsole  = 0
     MP._cur_obj = float('inf')
     MP._time = time.time()
     MP._no_improve_iter = 0
@@ -1069,8 +1140,7 @@ def tvopdpt_milp_gurobi(constant,
             print("   [Gurobi obj value] is %i" % obj_val_MP)
             print("   [Gurobi runtime] is %f" % runtime_MP)
     
-    
-    
+       
     ###### Get solutions ######
     
     # store all values in a list: sol

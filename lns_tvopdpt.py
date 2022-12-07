@@ -326,8 +326,8 @@ def main():
 
     ConsoleLogger.start(logfile, mode='w', time_format='[%m-%d %H:%M:%S]')
 
-    for case_num in range(1,6,1):
-    # for case_num in [3]:
+    # for case_num in range(1,6,1):
+    for case_num in [3]:
         print(f'\n START LNS_TVOPDPT on case {case_num}========================')
         with ConsoleLogger.copy_to(os.path.join(dir_, 'out','impSol_tvopdpt', f'case{case_num}.log')):
 

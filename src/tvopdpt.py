@@ -381,7 +381,7 @@ def tvopdpt_milp_gurobi(constant,
                 S[(destination_truck, truck_key)] 
                 == 0
             )
-        if truck_key in created_truck_yCycle():
+        if truck_key in created_truck_yCycle.keys():
             destination_truck = selected_truck[truck_key][1]
             MP.addConstr(
                 Sb[(destination_truck, truck_key)] 

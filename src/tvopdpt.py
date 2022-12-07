@@ -230,23 +230,23 @@ def tvopdpt_milp_gurobi(constant,
                      == 0 
         )
     
-    # added on Nov. 29th
-    for cargo_ in selected_cargo.keys():
-        origin_cargo = selected_cargo[cargo_][3]
-        destination_cargo = selected_cargo[cargo_][4]
-        for node_ in selected_node:
-            if node_ != origin_cargo and node_ != destination_cargo:
-                MP.addConstr(
-                    quicksum(z[(pred_node, node_, truck_, cargo_)] * 1
-                             for pred_node in selected_node 
-                             if pred_node != node_
-                             for truck_ in selected_truck.keys())
-                    ==
-                    quicksum(z[(node_, succ_node, truck_, cargo_)] * 1
-                             for succ_node in selected_node 
-                             if succ_node != node_
-                             for truck_ in selected_truck.keys())
-                )
+    # # added on Nov. 29th
+    # for cargo_ in selected_cargo.keys():
+    #     origin_cargo = selected_cargo[cargo_][3]
+    #     destination_cargo = selected_cargo[cargo_][4]
+    #     for node_ in selected_node:
+    #         if node_ != origin_cargo and node_ != destination_cargo:
+    #             MP.addConstr(
+    #                 quicksum(z[(pred_node, node_, truck_, cargo_)] * 1
+    #                          for pred_node in selected_node 
+    #                          if pred_node != node_
+    #                          for truck_ in selected_truck.keys())
+    #                 ==
+    #                 quicksum(z[(node_, succ_node, truck_, cargo_)] * 1
+    #                          for succ_node in selected_node 
+    #                          if succ_node != node_
+    #                          for truck_ in selected_truck.keys())
+    #             )
 
     # added nov. 29th
     for cargo_key, cargo_value in selected_cargo.items():

@@ -5,6 +5,7 @@ from src.util import read_pdpt_csv_to_pickle, ConsoleLogger
 from pdpt_ini_sol import pdpt_ini_sol
 from pdpt_repair import pdpt_sol_repair
 from pdpt_rasd import pdpt_rasd
+from lns_tvopdpt import lns_tvopdpt
 from pathlib import Path
 
 import argparse
@@ -57,6 +58,12 @@ def main():
         # if remaining_time<0:
         #     print('===== reach runtime limit, exit')
         #     return None
+    for case_num in range(1,6,1):
+    # for case_num in [3]:
+        print(f'\nSTART LNS_TVOPDPT on  case {case_num}======================')
+        with ConsoleLogger.copy_to(os.path.join(DATA_DIR, 'out','impSol_tvopdpt', f'case{case_num}.log')):
+
+            lns_tvopdpt(case_num)
 
     # repair initial solution through a best_insertion heuristic
     # for case_num in [1,]: 

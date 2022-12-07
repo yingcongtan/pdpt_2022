@@ -376,9 +376,15 @@ def tvopdpt_milp_gurobi(constant,
         # if truck_ is a NON-cycle truck and node_ is its destination
         # then the truck capacity when departing its destination is 0
         if truck_key in created_truck_nCycle.keys():
-            destination_truck = selected_truck[truck_][1]
+            destination_truck = selected_truck[truck_key][1]
             MP.addConstr(
                 S[(destination_truck, truck_key)] 
+                == 0
+            )
+        if truck_key in created_truck_yCycle():
+            destination_truck = selected_truck[truck_key][1]
+            MP.addConstr(
+                Sb[(destination_truck, truck_key)] 
                 == 0
             )
 

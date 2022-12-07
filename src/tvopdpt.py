@@ -764,7 +764,7 @@ def tvopdpt_milp_gurobi(constant,
                                 - bigM_time*(1-w[(node_curr, cargo_)])
                             )
                             MP.addConstr(
-                                Db[(node_curr, truck_2)] >= A[(node_curr, truck_1)] 
+                                D[(node_curr, truck_2)] >= Ab[(node_curr, truck_1)] 
                                 + 2* quicksum(u[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
                                                 for cargo_key, cargo_value in selected_cargo.items())
@@ -781,7 +781,7 @@ def tvopdpt_milp_gurobi(constant,
                                 - bigM_time*(1-w[(node_curr, cargo_)])
                             )
                             MP.addConstr(
-                                D[(node_curr, truck_2)] >= Ab[(node_curr, truck_1)] 
+                                Db[(node_curr, truck_2)] >= A[(node_curr, truck_1)] 
                                 + 2* quicksum(u[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
                                                 for cargo_key, cargo_value in selected_cargo.items())
@@ -813,7 +813,7 @@ def tvopdpt_milp_gurobi(constant,
                                 - bigM_time*(1-w[(node_curr, cargo_)])
                             )       
                             MP.addConstr(
-                                Db[(node_curr, truck_2)] >= A[(node_curr, truck_1)] 
+                                D[(node_curr, truck_2)] >= Ab[(node_curr, truck_1)] 
                                 + 2* quicksum(u[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
                                                 for cargo_key, cargo_value in selected_cargo.items())
@@ -846,7 +846,7 @@ def tvopdpt_milp_gurobi(constant,
                             - bigM_time*(1-w[(node_curr, cargo_)])
                         )
                         MP.addConstr(
-                            D[(node_curr, truck_2)] >= Ab[(node_curr, truck_1)] 
+                            Db[(node_curr, truck_2)] >= A[(node_curr, truck_1)] 
                             + 2* quicksum(u[(node_curr, cargo_key)]* 
                                             int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
                                             for cargo_key, cargo_value in selected_cargo.items())

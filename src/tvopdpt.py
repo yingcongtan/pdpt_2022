@@ -388,10 +388,6 @@ def tvopdpt_milp_gurobi(constant,
                 == 0
             )
 
-    truck_1, truck_2 = selected_truck.keys()
-    truck_1_origin, truck_1_dest = selected_truck[truck_1][:2]
-    truck_2_origin, truck_2_dest = selected_truck[truck_2][:2]
-
     bigM_capacity = 30000
     for node_curr in selected_node:
         for truck_key in selected_truck.keys():
@@ -403,7 +399,9 @@ def tvopdpt_milp_gurobi(constant,
                                         )
                 )
 
-
+    # truck_1, truck_2 = selected_truck.keys()
+    # truck_1_origin, truck_1_dest = selected_truck[truck_1][:2]
+    # truck_2_origin, truck_2_dest = selected_truck[truck_2][:2]
     # for node_curr in selected_node:
     #     for node_prev in selected_node:
     #         if node_curr != node_prev:

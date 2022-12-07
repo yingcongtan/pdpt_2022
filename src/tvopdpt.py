@@ -269,20 +269,20 @@ def tvopdpt_milp_gurobi(constant,
                         <= 1
                     )
     
-    # added nov. 29th
-    # cargo can arrive at cargo_dest or leave cargo_origin in only one truck
-    for cargo_key, cargo_value in selected_cargo.items():
-        cargo_origin, cargo_dest = cargo_value[-2], cargo_value[-1]
-        MP.addConstr( quicksum(   z[cargo_origin, node_next, truck_1, cargo_key] 
-                                + z[cargo_origin, node_next, truck_2, cargo_key] 
-                                for node_next in selected_node if node_next != cargo_origin)
-                    <=1
-        )
-        MP.addConstr( quicksum(   z[node_prev, cargo_dest, truck_1, cargo_key] 
-                                + z[node_prev, cargo_dest, truck_2, cargo_key] 
-                                for node_prev in selected_node if cargo_dest != node_prev)
-                    <=1
-        )
+    # # added nov. 29th
+    # # cargo can arrive at cargo_dest or leave cargo_origin in only one truck
+    # for cargo_key, cargo_value in selected_cargo.items():
+    #     cargo_origin, cargo_dest = cargo_value[-2], cargo_value[-1]
+    #     MP.addConstr( quicksum(   z[cargo_origin, node_next, truck_1, cargo_key] 
+    #                             + z[cargo_origin, node_next, truck_2, cargo_key] 
+    #                             for node_next in selected_node if node_next != cargo_origin)
+    #                 <=1
+    #     )
+    #     MP.addConstr( quicksum(   z[node_prev, cargo_dest, truck_1, cargo_key] 
+    #                             + z[node_prev, cargo_dest, truck_2, cargo_key] 
+    #                             for node_prev in selected_node if cargo_dest != node_prev)
+    #                 <=1
+    #     )
         
     # Flow constraints (3.1)
     # the truck must start from its origin

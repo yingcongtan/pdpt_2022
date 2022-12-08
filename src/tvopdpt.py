@@ -735,17 +735,19 @@ def tvopdpt_milp_gurobi(constant,
         for cargo_ in selected_cargo.keys():
             if truck_1 in created_truck_yCycle.keys(): # if truck_1 is a cycle truck
                 if truck_2 in created_truck_yCycle.keys(): # if truck_2 is a cycle truck
+                # truck1, truck 2 are cycle truck
                     if node_curr == created_truck_yCycle[truck_1][1]: 
                         if node_curr == created_truck_yCycle[truck_2][1]: 
+                            
                             # node_curr is the dest of truck 1 and 2
-                            MP.addConstr(
+                            MP.addConstr( # this is dummy truck1 can't receive cargo at truck1's dest
                                 Db[(node_curr, truck_1)] >= Ab[(node_curr, truck_2)] 
                                 + 2* quicksum(w[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
                                                 for cargo_key, cargo_value in selected_cargo.items())
                                 - bigM_time*(1-w[(node_curr, cargo_)])
                             )
-                            MP.addConstr(
+                            MP.addConstr(# this is dummy truck2 can't receive cargo at truck2's dest
                                 Db[(node_curr, truck_2)] >= Ab[(node_curr, truck_1)] 
                                 + 2* quicksum(u[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
@@ -754,14 +756,14 @@ def tvopdpt_milp_gurobi(constant,
                             )
                         else:
                             # node_curr is the dest of truck 1 not dest of truck 2
-                            MP.addConstr(
+                            MP.addConstr( # this is dummy truck1 can't receive cargo at truck1's dest
                                 Db[(node_curr, truck_1)] >= A[(node_curr, truck_2)] 
                                 + 2* quicksum(w[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
                                                 for cargo_key, cargo_value in selected_cargo.items())
                                 - bigM_time*(1-w[(node_curr, cargo_)])
                             )
-                            MP.addConstr(
+                            MP.addConstr( # truck 2 can recive cargo at nodes that are not truck2's dest
                                 D[(node_curr, truck_2)] >= Ab[(node_curr, truck_1)] 
                                 + 2* quicksum(u[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
@@ -778,7 +780,7 @@ def tvopdpt_milp_gurobi(constant,
                                                 for cargo_key, cargo_value in selected_cargo.items())
                                 - bigM_time*(1-w[(node_curr, cargo_)])
                             )
-                            MP.addConstr(
+                            MP.addConstr( # this is dummy truck2 can't receive cargo at truck2's dest
                                 Db[(node_curr, truck_2)] >= A[(node_curr, truck_1)] 
                                 + 2* quicksum(u[(node_curr, cargo_key)]* 
                                                 int(np.ceil(cargo_value[0] * constant['loading_variation_coefficient']))
